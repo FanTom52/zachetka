@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="ru" data-bs-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Электронная Зачётка Техникума</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #34495e;
+            --accent-color: #3498db;
+            --success-color: #27ae60;
+            --warning-color: #f39c12;
+            --danger-color: #e74c3c;
+        }
+        
+        .sidebar {
+            background: linear-gradient(180deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            min-height: 100vh;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+        }
+        
+        .sidebar .nav-link {
+            color: #ecf0f1;
+            border-radius: 8px;
+            margin: 2px 0;
+            transition: all 0.3s ease;
+        }
+        
+        .sidebar .nav-link:hover {
+            background: rgba(255,255,255,0.1);
+            transform: translateX(5px);
+        }
+        
+        .sidebar .nav-link.active {
+            background: var(--accent-color);
+            box-shadow: 0 2px 8px rgba(52, 152, 219, 0.3);
+        }
+        
+        .main-content {
+            background-color: #f8f9fa;
+            min-height: 100vh;
+        }
+        
+        .stat-card {
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 15px rgba(0,0,0,0.2);
+        }
+        
+        .grade-badge {
+            font-size: 0.9em;
+            padding: 0.5em 0.8em;
+        }
+        
+        .table-hover tbody tr {
+            transition: background-color 0.2s ease;
+        }
+        
+        .login-container {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .login-card {
+            border: none;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            backdrop-filter: blur(10px);
+        }
+        
+        .theme-switch {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* Стили для уведомлений */
+        .notification-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1060;
+            min-width: 300px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Страница входа -->
+    <div id="loginPage" class="login-container">
+        <div class="theme-switch">
+            <button class="btn btn-light btn-sm" onclick="toggleTheme()">
+                <i class="fas fa-moon"></i>
+            </button>
+        </div>
+        
+        <div class="container">
+            <div class="row justify-content-center align-items-center min-vh-100">
+                <div class="col-md-5">
+                    <div class="card login-card bg-white bg-opacity-90">
+                        <div class="card-body p-5">
+                            <div class="text-center mb-4">
+                                <i class="fas fa-graduation-cap fa-3x text-primary mb-3"></i>
+                                <h2 class="fw-bold">Электронная Зачётка</h2>
+                                <p class="text-muted">Техникум информационных технологий</p>
+                            </div>
+                            
+                            <form id="loginForm">
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold">Логин</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text"><i class="fas fa-user"></i></span>
+                                        <input type="text" class="form-control" id="username" 
+                                               placeholder="Введите ваш логин" required>
+                                    </div>
+                                </div>
+                                
+                                <div class="mb-4">
+                                    <label class="form-label fw-semibold">Пароль</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text"><i class="fas fa-lock"></i></span>
+                                        <input type="password" class="form-control" id="password" 
+                                               placeholder="Введите ваш пароль" required>
+                                    </div>
+                                </div>
+                                
+                                <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold">
+                                    <i class="fas fa-sign-in-alt me-2"></i>Войти в систему
+                                </button>
+                            </form>
+                            
+                            <div class="mt-4 p-3 bg-light rounded">
+                                <h6 class="fw-semibold mb-2">Тестовые доступы:</h6>
+                                <div class="row small">
+                                    <div class="col-4">
+                                        <strong>Админ</strong><br>
+                                        admin<br>admin123
+                                    </div>
+                                    <div class="col-4">
+                                        <strong>Преподаватель</strong><br>
+                                        teacher<br>teacher123
+                                    </div>
+                                    <div class="col-4">
+                                        <strong>Студент</strong><br>
+                                        student<br>student123
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Основное приложение -->
+    <div id="mainApp" class="d-none">
+        <div class="theme-switch">
+            <button class="btn btn-outline-secondary btn-sm" onclick="toggleTheme()">
+                <i class="fas fa-moon"></i>
+            </button>
+        </div>
+        
+        <!-- Контейнер для уведомлений -->
+        <div class="notification-container" id="notifications"></div>
+        
+        <div class="container-fluid">
+            <div class="row">
+                <!-- Боковая панель -->
+                <nav class="col-md-3 col-lg-2 sidebar p-0">
+                    <div class="position-sticky pt-3">
+                        <div class="text-center mb-4 p-3">
+                            <i class="fas fa-graduation-cap fa-2x text-white mb-2"></i>
+                            <h5 class="text-white mb-0">Электронная Зачётка</h5>
+                            <small class="text-white-50" id="userInfoSidebar"></small>
+                        </div>
+                        
+                        <ul class="nav flex-column">
+                            <li class="nav-item">
+                                <a class="nav-link active" href="#" data-section="dashboard">
+                                    <i class="fas fa-tachometer-alt me-2"></i>Панель управления
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="#" data-section="students" id="studentsNavItem">
+                                    <i class="fas fa-users me-2"></i>Студенты
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="#" data-section="grades">
+                                    <i class="fas fa-book me-2"></i>Журнал оценок
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="#" data-section="statistics">
+                                    <i class="fas fa-chart-bar me-2"></i>Статистика
+                                </a>
+                            </li>
+                             <!-- В навигационном меню добавьте: -->
+                            <li class="nav-item">
+                                <a class="nav-link" href="#" data-section="schedule">
+                                    <i class="fas fa-calendar-alt me-2"></i>Расписание
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="#" data-section="attendance">
+                                    <i class="fas fa-clipboard-check me-2"></i>Посещаемость
+                                </a>
+                            </li>
+                            <li class="nav-item mt-4">
+                                <a class="nav-link text-warning" href="#" data-action="logout">
+                                    <i class="fas fa-sign-out-alt me-2"></i>Выйти
+                                </a>
+                            </li>
+                           
+                        </ul>
+                    </div>
+                </nav>
+
+                <!-- Основной контент -->
+                <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content">
+                    <!-- Заголовок и уведомления -->
+                    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                        <h1 id="pageTitle" class="h2">Панель управления</h1>
+                        <div class="btn-toolbar mb-2 mb-md-0">
+                            <div class="btn-group me-2">
+                                <span class="badge bg-primary fs-6" id="currentSemester">Семестр 1, 2024</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Контент разделов -->
+                    <div id="sectionsContent">
+                        <!-- Разделы будут загружаться динамически -->
+                    </div>
+                </main>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="js/app.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
