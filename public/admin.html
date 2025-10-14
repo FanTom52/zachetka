@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Панель администратора</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>👨‍💼 Панель администратора</h1>
+            <div class="user-info">
+                <span id="userName"></span>
+                <button onclick="logout()" class="btn btn-secondary">Выйти</button>
+                <button onclick="window.location.href='index.html'" class="btn btn-primary">На главную</button>
+            </div>
+        </header>
+
+        <div class="card">
+            <h2>Добро пожаловать в панель управления!</h2>
+            <p>Здесь вы можете управлять пользователями и настройками системы.</p>
+            
+            <div class="admin-links">
+                <button onclick="manageUsers()" class="btn btn-primary">Управление пользователями</button>
+                <button onclick="viewStatistics()" class="btn btn-primary">Статистика системы</button>
+            </div>
+            
+            <div id="adminContent" class="admin-content">
+                <p>Выберите действие из меню выше</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let token = localStorage.getItem('token');
+        let currentUser = null;
+
+        // Проверяем авторизацию при загрузке
+        async function checkAuth() {
+            if (!token) {
+                window.location.href = 'login.html';
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/auth/me', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    currentUser = result.user;
+                    if (currentUser.role !== 'admin') {
+                        alert('Доступ запрещен! Только для администраторов.');
+                        window.location.href = 'index.html';
+                        return;
+                    }
+                    
+                    document.getElementById('userName').textContent = currentUser.username;
+                } else {
+                    localStorage.removeItem('token');
+                    window.location.href = 'login.html';
+                }
+            } catch (error) {
+                console.error('Auth error:', error);
+                localStorage.removeItem('token');
+                window.location.href = 'login.html';
+            }
+        }
+
+        async function manageUsers() {
+            try {
+                const response = await fetch('/api/admin/users', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    let html = '<h3>📋 Список пользователей</h3>';
+                    
+                    if (result.data.length === 0) {
+                        html += '<p>Пользователи не найдены</p>';
+                    } else {
+                        html += '<table class="data-table"><tr><th>ID</th><th>Логин</th><th>Роль</th><th>Дата регистрации</th></tr>';
+                        
+                        result.data.forEach(user => {
+                            let roleBadge = '';
+                            switch(user.role) {
+                                case 'admin': roleBadge = '<span class="role-badge role-admin">Админ</span>'; break;
+                                case 'teacher': roleBadge = '<span class="role-badge role-teacher">Преподаватель</span>'; break;
+                                case 'student': roleBadge = '<span class="role-badge role-student">Студент</span>'; break;
+                            }
+                            
+                            html += `<tr>
+                                <td>${user.id}</td>
+                                <td>${user.username}</td>
+                                <td>${roleBadge}</td>
+                                <td>${new Date(user.created_at).toLocaleDateString()}</td>
+                            </tr>`;
+                        });
+                        
+                        html += '</table>';
+                    }
+                    
+                    document.getElementById('adminContent').innerHTML = html;
+                } else {
+                    document.getElementById('adminContent').innerHTML = '<p>Ошибка загрузки пользователей</p>';
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('adminContent').innerHTML = '<p>Ошибка загрузки</p>';
+            }
+        }
+
+        async function viewStatistics() {
+            try {
+                const response = await fetch('/api/statistics/overview', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    const stats = result.data;
+                    document.getElementById('adminContent').innerHTML = `
+                        <h3>📊 Статистика системы</h3>
+                        <div class="stats-grid">
+                            <div class="stat-card">
+                                <h4>👥 Студенты</h4>
+                                <p>${stats.students || 0}</p>
+                            </div>
+                            <div class="stat-card">
+                                <h4>👨‍🏫 Преподаватели</h4>
+                                <p>${stats.teachers || 0}</p>
+                            </div>
+                            <div class="stat-card">
+                                <h4>📚 Предметы</h4>
+                                <p>${stats.subjects || 0}</p>
+                            </div>
+                            <div class="stat-card">
+                                <h4>📝 Оценки</h4>
+                                <p>${stats.grades || 0}</p>
+                            </div>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('adminContent').innerHTML = '<p>Ошибка загрузки статистики</p>';
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem('token');
+            window.location.href = 'login.html';
+        }
+
+        // Запускаем проверку авторизации
+        checkAuth();
+    </script>
+</body>
+</html>

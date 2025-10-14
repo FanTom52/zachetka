@@ -5,6 +5,12 @@ const bcrypt = require('bcryptjs');
 const database = require('./database');
 require('dotenv').config();
 
+if (!process.env.JWT_SECRET) {
+    console.error('❌ ОШИБКА: Нужно установить JWT_SECRET в файле .env');
+    console.error('💡 Добавьте в файл .env строку: JWT_SECRET=ваш_секретный_ключ');
+    process.exit(1); // Останавливаем программу
+}
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -26,7 +32,7 @@ const authenticateToken = (req, res, next) => {
         });
     }
 
-    jwt.verify(token, process.env.JWT_SECRET || 'fallback_secret', (err, user) => {
+    jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
         if (err) {
             return res.status(403).json({ 
                 success: false, 
@@ -43,6 +49,8 @@ app.post('/api/auth/login', async (req, res) => {
     try {
         const { username, password } = req.body;
 
+        // ⭐⭐⭐ ПРОВЕРКА ДАННЫХ (ИСПРАВЛЕННАЯ) ⭐⭐⭐
+        // Проверяем, что все поля заполнены
         if (!username || !password) {
             return res.status(400).json({
                 success: false,
@@ -50,7 +58,24 @@ app.post('/api/auth/login', async (req, res) => {
             });
         }
 
-        // Исправленный запрос - убрали JOIN с user_id
+        // Проверяем длину логина
+        if (username.length < 3) {
+            return res.status(400).json({
+                success: false,
+                error: 'Логин должен быть не менее 3 символов'
+            });
+        }
+
+        // Проверяем длину пароля
+        if (password.length < 6) {
+            return res.status(400).json({
+                success: false,
+                error: 'Пароль должен быть не менее 6 символов'
+            });
+        }
+        // ⭐⭐⭐ КОНЕЦ ПРОВЕРКИ ⭐⭐⭐
+
+        // Остальной код оставляем без изменений
         const users = await database.query(
             `SELECT u.*, 
                     s.id as student_id, s.group_id,
@@ -89,17 +114,24 @@ app.post('/api/auth/login', async (req, res) => {
                 student_id: user.student_id,
                 teacher_id: user.teacher_id
             },
-            process.env.JWT_SECRET || 'fallback_secret',
+            process.env.JWT_SECRET,
             { expiresIn: '24h' }
         );
 
-        // Убираем пароль из ответа
-        const { password: userPassword, ...userWithoutPassword } = user;
+        // Создаем объект пользователя без пароля и без name
+        const userResponse = {
+            id: user.id,
+            username: user.username,
+            role: user.role,
+            student_id: user.student_id,
+            teacher_id: user.teacher_id
+            // убрали name
+        };
 
         res.json({
             success: true,
             token,
-            user: userWithoutPassword
+            user: userResponse
         });
 
     } catch (error) {
@@ -107,6 +139,118 @@ app.post('/api/auth/login', async (req, res) => {
         res.status(500).json({
             success: false,
             error: 'Ошибка сервера при авторизации'
+        });
+    }
+});
+
+// 📍 Регистрация нового пользователя (только для админов)
+app.post('/api/auth/register', authenticateToken, async (req, res) => {
+    try {
+        // ⭐⭐⭐ ПРОВЕРКА ПРАВ АДМИНА ⭐⭐⭐
+        if (req.user.role !== 'admin') {
+            return res.status(403).json({
+                success: false,
+                error: 'Только администратор может регистрировать новых пользователей'
+            });
+        }
+
+        const { username, password, role, student_card, group_id } = req.body;
+
+        // Проверяем, что все обязательные поля заполнены
+        if (!username || !password || !role) {
+            return res.status(400).json({
+                success: false,
+                error: 'Логин, пароль и роль обязательны'
+            });
+        }
+
+        // Проверяем длину логина
+        if (username.length < 3) {
+            return res.status(400).json({
+                success: false,
+                error: 'Логин должен быть не менее 3 символов'
+            });
+        }
+
+        // Проверяем длину пароля
+        if (password.length < 6) {
+            return res.status(400).json({
+                success: false,
+                error: 'Пароль должен быть не менее 6 символов'
+            });
+        }
+
+        // Проверяем, что роль правильная
+        if (!['student', 'teacher', 'admin'].includes(role)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Роль должна быть "student", "teacher" или "admin"'
+            });
+        }
+
+        // Проверяем, нет ли уже пользователя с таким логином
+        const existingUsers = await database.query(
+            'SELECT id FROM users WHERE username = ?', 
+            [username]
+        );
+
+        if (existingUsers.length > 0) {
+            return res.status(400).json({
+                success: false,
+                error: 'Пользователь с таким логином уже существует'
+            });
+        }
+
+        // Хешируем пароль
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        let student_id = null;
+        let teacher_id = null;
+
+        // Если регистрируется студент - создаем запись в students
+        if (role === 'student') {
+            if (!student_card) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Для студента обязателен номер зачетки'
+                });
+            }
+
+            const studentResult = await database.run(
+                `INSERT INTO students (name, student_card, group_id) 
+                 VALUES (?, ?, ?)`,
+                [username, student_card, group_id || null] // Используем username как имя
+            );
+            student_id = studentResult.insertId;
+        }
+
+        // Если регистрируется преподаватель - создаем запись в teachers
+        if (role === 'teacher') {
+            const teacherResult = await database.run(
+                `INSERT INTO teachers (name) 
+                 VALUES (?)`,
+                [username] // Используем username как имя
+            );
+            teacher_id = teacherResult.insertId;
+        }
+
+        // Создаем пользователя (БЕЗ колонки name)
+        await database.run(
+            `INSERT INTO users (username, password, role, student_id, teacher_id) 
+             VALUES (?, ?, ?, ?, ?)`,
+            [username, hashedPassword, role, student_id, teacher_id]
+        );
+
+        res.json({
+            success: true,
+            message: 'Пользователь успешно зарегистрирован!'
+        });
+
+    } catch (error) {
+        console.error('Registration error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Ошибка регистрации пользователя'
         });
     }
 });
@@ -132,11 +276,19 @@ app.get('/api/auth/me', authenticateToken, async (req, res) => {
             });
         }
 
-        const { password, ...userWithoutPassword } = users[0];
-        
+        const user = users[0];
+        const userResponse = {
+            id: user.id,
+            username: user.username,
+            role: user.role,
+            student_id: user.student_id,
+            teacher_id: user.teacher_id
+            // убрали name
+        };
+
         res.json({
             success: true,
-            user: userWithoutPassword
+            user: userResponse
         });
 
     } catch (error) {
@@ -144,6 +296,42 @@ app.get('/api/auth/me', authenticateToken, async (req, res) => {
         res.status(500).json({
             success: false,
             error: 'Ошибка сервера'
+        });
+    }
+});
+
+// 📍 Получение списка всех пользователей (только для админов)
+app.get('/api/admin/users', authenticateToken, async (req, res) => {
+    try {
+        // Проверяем права админа
+        if (req.user.role !== 'admin') {
+            return res.status(403).json({
+                success: false,
+                error: 'Доступ запрещен'
+            });
+        }
+
+        const users = await database.query(`
+            SELECT u.*, 
+                   s.student_card,
+                   s.name as student_name,
+                   g.name as group_name
+            FROM users u
+            LEFT JOIN students s ON u.student_id = s.id
+            LEFT JOIN groups g ON s.group_id = g.id
+            ORDER BY u.created_at DESC
+        `);
+
+        res.json({
+            success: true,
+            data: users
+        });
+
+    } catch (error) {
+        console.error('Get users error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Ошибка загрузки пользователей'
         });
     }
 });
@@ -594,7 +782,7 @@ app.get('/api/attendance/student/:studentId', authenticateToken, async (req, res
             });
         }
 
-        // Получаем посещаемость студента (упрощенная версия)
+        // Исправленный запрос - убрали schedule_id
         const attendance = await database.query(`
             SELECT a.*, 
                    sub.name as subject_name,
@@ -623,134 +811,62 @@ app.get('/api/attendance/student/:studentId', authenticateToken, async (req, res
     }
 });
 
-// 📍 Маршруты расписания для студента
-app.get('/api/schedule/student/:studentId', authenticateToken, async (req, res) => {
-    try {
-        const { studentId } = req.params;
-        
-        // Получаем данные студента
-        const student = await database.query(`
-            SELECT s.*, g.name as group_name 
-            FROM students s 
-            LEFT JOIN groups g ON s.group_id = g.id 
-            WHERE s.id = ?
-        `, [studentId]);
-
-        if (student.length === 0) {
-            return res.status(404).json({
-                success: false,
-                error: 'Студент не найден'
-            });
-        }
-
-        // Получаем расписание для группы студента
-        const schedule = await database.query(`
-            SELECT sch.*, 
-                   sub.name as subject_name,
-                   t.name as teacher_name,
-                   g.name as group_name
-            FROM schedule sch
-            LEFT JOIN subjects sub ON sch.subject_id = sub.id
-            LEFT JOIN teachers t ON sch.teacher_id = t.id
-            LEFT JOIN groups g ON sch.group_id = g.id
-            WHERE sch.group_id = ?
-            ORDER BY sch.day_of_week, sch.start_time
-        `, [student[0].group_id]);
-
-        res.json({
-            success: true,
-            data: {
-                student: student[0],
-                schedule: schedule
-            }
-        });
-
-    } catch (error) {
-        console.error('Student schedule error:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Ошибка загрузки расписания'
-        });
-    }
-});
-
-// 📍 Маршруты расписания для преподавателя
-app.get('/api/schedule/teacher/:teacherId', authenticateToken, async (req, res) => {
+// 📍 Оценки преподавателя (оценки, которые поставил преподаватель)
+app.get('/api/grades/teacher/:teacherId', authenticateToken, async (req, res) => {
     try {
         const { teacherId } = req.params;
         
-        const schedule = await database.query(`
-            SELECT sch.*, 
-                   sub.name as subject_name,
-                   g.name as group_name
-            FROM schedule sch
-            LEFT JOIN subjects sub ON sch.subject_id = sub.id
-            LEFT JOIN groups g ON sch.group_id = g.id
-            WHERE sch.teacher_id = ?
-            ORDER BY sch.day_of_week, sch.start_time
+        const grades = await database.query(`
+            SELECT g.*, 
+                   s.name as student_name,
+                   s.student_card,
+                   gr.name as group_name,
+                   sub.name as subject_name
+            FROM grades g
+            LEFT JOIN students s ON g.student_id = s.id
+            LEFT JOIN groups gr ON s.group_id = gr.id
+            LEFT JOIN subjects sub ON g.subject_id = sub.id
+            WHERE g.teacher_id = ?
+            ORDER BY g.date DESC
         `, [teacherId]);
 
         res.json({
             success: true,
-            data: schedule
+            data: grades
         });
-
     } catch (error) {
-        console.error('Teacher schedule error:', error);
+        console.error('Get teacher grades error:', error);
         res.status(500).json({
             success: false,
-            error: 'Ошибка загрузки расписания'
+            error: 'Ошибка загрузки оценок'
         });
     }
 });
 
-// 📍 Маршруты посещаемости для студента
-app.get('/api/attendance/student/:studentId', authenticateToken, async (req, res) => {
+// 📍 Студенты преподавателя (студенты, которых ведет преподаватель)
+app.get('/api/teacher/:teacherId/students', authenticateToken, async (req, res) => {
     try {
-        const { studentId } = req.params;
+        const { teacherId } = req.params;
         
-        // Получаем данные студента
-        const student = await database.query(`
-            SELECT s.*, g.name as group_name 
-            FROM students s 
-            LEFT JOIN groups g ON s.group_id = g.id 
-            WHERE s.id = ?
-        `, [studentId]);
-
-        if (student.length === 0) {
-            return res.status(404).json({
-                success: false,
-                error: 'Студент не найден'
-            });
-        }
-
-        // Получаем посещаемость студента
-        const attendance = await database.query(`
-            SELECT a.*, 
-                   sub.name as subject_name,
-                   t.name as teacher_name,
-                   sch.classroom
-            FROM attendance a
-            LEFT JOIN schedule sch ON a.schedule_id = sch.id
-            LEFT JOIN subjects sub ON sch.subject_id = sub.id
-            LEFT JOIN teachers t ON sch.teacher_id = t.id
-            WHERE a.student_id = ?
-            ORDER BY a.date DESC
-        `, [studentId]);
+        const students = await database.query(`
+            SELECT DISTINCT s.*, g.name as group_name
+            FROM students s
+            LEFT JOIN groups g ON s.group_id = g.id
+            LEFT JOIN grades gr ON s.id = gr.student_id
+            LEFT JOIN subjects sub ON gr.subject_id = sub.id
+            WHERE sub.teacher_id = ? OR gr.teacher_id = ?
+            ORDER BY s.name
+        `, [teacherId, teacherId]);
 
         res.json({
             success: true,
-            data: {
-                student: student[0],
-                attendance: attendance
-            }
+            data: students
         });
-
     } catch (error) {
-        console.error('Student attendance error:', error);
+        console.error('Get teacher students error:', error);
         res.status(500).json({
             success: false,
-            error: 'Ошибка загрузки посещаемости'
+            error: 'Ошибка загрузки студентов'
         });
     }
 });
@@ -846,6 +962,151 @@ app.get('/api/attendance/:date/:groupId/:subjectId', authenticateToken, async (r
         res.status(500).json({
             success: false,
             error: 'Ошибка загрузки посещаемости'
+        });
+    }
+});
+
+// 📍 Получение групп преподавателя (группы, которые ведет преподаватель)
+app.get('/api/teacher/:teacherId/groups', authenticateToken, async (req, res) => {
+    try {
+        const { teacherId } = req.params;
+        
+        // Исправленный запрос - убрали group_id из subjects
+        const groups = await database.query(`
+            SELECT DISTINCT g.*
+            FROM groups g
+            LEFT JOIN students s ON g.id = s.group_id
+            LEFT JOIN grades gr ON s.id = gr.student_id
+            LEFT JOIN subjects sub ON gr.subject_id = sub.id
+            WHERE sub.teacher_id = ? OR gr.teacher_id = ?
+            ORDER BY g.name
+        `, [teacherId, teacherId]);
+
+        res.json({
+            success: true,
+            data: groups
+        });
+    } catch (error) {
+        console.error('Get teacher groups error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Ошибка загрузки групп'
+        });
+    }
+});
+
+// 📍 Получение предметов преподавателя
+app.get('/api/teacher/:teacherId/subjects', authenticateToken, async (req, res) => {
+    try {
+        const { teacherId } = req.params;
+        
+        // Исправленный запрос - убрали group_id
+        const subjects = await database.query(`
+            SELECT DISTINCT s.*
+            FROM subjects s
+            WHERE s.teacher_id = ?
+            ORDER BY s.name
+        `, [teacherId]);
+
+        res.json({
+            success: true,
+            data: subjects
+        });
+    } catch (error) {
+        console.error('Get teacher subjects error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Ошибка загрузки предметов'
+        });
+    }
+});
+
+// 📍 Получение студентов группы для отметки посещаемости
+app.get('/api/groups/:groupId/students-with-attendance', authenticateToken, async (req, res) => {
+    try {
+        const { groupId } = req.params;
+        const { date, subjectId } = req.query;
+        
+        let students = await database.query(`
+            SELECT s.id, s.name, s.student_card
+            FROM students s
+            WHERE s.group_id = ?
+            ORDER BY s.name
+        `, [groupId]);
+
+        // Если указана дата и предмет - загружаем существующую посещаемость
+        if (date && subjectId) {
+            const attendance = await database.query(`
+                SELECT a.* 
+                FROM attendance a 
+                WHERE a.date = ? AND a.subject_id = ? AND a.student_id IN (
+                    SELECT id FROM students WHERE group_id = ?
+                )
+            `, [date, subjectId, groupId]);
+
+            // Объединяем данные
+            students = students.map(student => {
+                const studentAttendance = attendance.find(a => a.student_id === student.id);
+                return {
+                    ...student,
+                    attendance_id: studentAttendance?.id || null,
+                    status: studentAttendance?.status || 'absent',
+                    notes: studentAttendance?.notes || ''
+                };
+            });
+        }
+
+        res.json({
+            success: true,
+            data: students
+        });
+    } catch (error) {
+        console.error('Get group students with attendance error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Ошибка загрузки студентов'
+        });
+    }
+});
+
+// 📍 Сохранение посещаемости для преподавателя
+app.post('/api/teacher/attendance', authenticateToken, async (req, res) => {
+    try {
+        const { date, subject_id, group_id, attendance_records } = req.body;
+
+        if (!date || !subject_id || !group_id || !attendance_records) {
+            return res.status(400).json({
+                success: false,
+                error: 'Не все данные предоставлены'
+            });
+        }
+
+        // Удаляем старые записи за эту дату
+        await database.run(`
+            DELETE FROM attendance 
+            WHERE date = ? AND subject_id = ? AND student_id IN (
+                SELECT id FROM students WHERE group_id = ?
+            )
+        `, [date, subject_id, group_id]);
+
+        // Добавляем новые записи
+        for (const record of attendance_records) {
+            await database.run(`
+                INSERT INTO attendance (student_id, subject_id, date, status, notes)
+                VALUES (?, ?, ?, ?, ?)
+            `, [record.student_id, subject_id, date, record.status, record.notes || '']);
+        }
+
+        res.json({
+            success: true,
+            message: 'Посещаемость успешно сохранена'
+        });
+
+    } catch (error) {
+        console.error('Save teacher attendance error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Ошибка сохранения посещаемости'
         });
     }
 });

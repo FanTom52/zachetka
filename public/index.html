@@ -1,260 +1,809 @@
 <!DOCTYPE html>
-<html lang="ru" data-bs-theme="light">
+<html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Электронная Зачётка Техникума</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
-    <style>
-        :root {
-            --primary-color: #2c3e50;
-            --secondary-color: #34495e;
-            --accent-color: #3498db;
-            --success-color: #27ae60;
-            --warning-color: #f39c12;
-            --danger-color: #e74c3c;
-        }
-        
-        .sidebar {
-            background: linear-gradient(180deg, var(--primary-color) 0%, var(--secondary-color) 100%);
-            min-height: 100vh;
-            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
-        }
-        
-        .sidebar .nav-link {
-            color: #ecf0f1;
-            border-radius: 8px;
-            margin: 2px 0;
-            transition: all 0.3s ease;
-        }
-        
-        .sidebar .nav-link:hover {
-            background: rgba(255,255,255,0.1);
-            transform: translateX(5px);
-        }
-        
-        .sidebar .nav-link.active {
-            background: var(--accent-color);
-            box-shadow: 0 2px 8px rgba(52, 152, 219, 0.3);
-        }
-        
-        .main-content {
-            background-color: #f8f9fa;
-            min-height: 100vh;
-        }
-        
-        .stat-card {
-            border: none;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-        }
-        
-        .stat-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 8px 15px rgba(0,0,0,0.2);
-        }
-        
-        .grade-badge {
-            font-size: 0.9em;
-            padding: 0.5em 0.8em;
-        }
-        
-        .table-hover tbody tr {
-            transition: background-color 0.2s ease;
-        }
-        
-        .login-container {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-        }
-        
-        .login-card {
-            border: none;
-            border-radius: 20px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-            backdrop-filter: blur(10px);
-        }
-        
-        .theme-switch {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 1000;
-        }
-
-        .hidden {
-            display: none !important;
-        }
-
-        /* Стили для уведомлений */
-        .notification-container {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 1060;
-            min-width: 300px;
-        }
-    </style>
+    <title>📚 Электронная зачетка</title>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <!-- Страница входа -->
-    <div id="loginPage" class="login-container">
-        <div class="theme-switch">
-            <button class="btn btn-light btn-sm" onclick="toggleTheme()">
-                <i class="fas fa-moon"></i>
-            </button>
-        </div>
-        
-        <div class="container">
-            <div class="row justify-content-center align-items-center min-vh-100">
-                <div class="col-md-5">
-                    <div class="card login-card bg-white bg-opacity-90">
-                        <div class="card-body p-5">
-                            <div class="text-center mb-4">
-                                <i class="fas fa-graduation-cap fa-3x text-primary mb-3"></i>
-                                <h2 class="fw-bold">Электронная Зачётка</h2>
-                                <p class="text-muted">Техникум информационных технологий</p>
-                            </div>
-                            
-                            <form id="loginForm">
-                                <div class="mb-3">
-                                    <label class="form-label fw-semibold">Логин</label>
-                                    <div class="input-group">
-                                        <span class="input-group-text"><i class="fas fa-user"></i></span>
-                                        <input type="text" class="form-control" id="username" 
-                                               placeholder="Введите ваш логин" required>
+    <div class="main-container">
+        <div class="container-fluid p-0">
+            <!-- Хедер -->
+            <header class="header">
+                <div class="row align-items-center">
+                    <div class="col">
+                        <h1 class="mb-0">
+                            <i class="bi bi-journal-bookmark-fill"></i>Электронная зачетка
+                        </h1>
+                    </div>
+                    <div class="col-auto">
+                        <div class="d-flex align-items-center gap-3">
+                            <span class="fw-bold text-dark" id="userName"></span>
+                            <button onclick="logout()" class="btn btn-outline-danger btn-sm">
+                                <i class="bi bi-box-arrow-right"></i>Выйти
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Навигация -->
+            <nav class="mb-4">
+                <ul class="nav nav-tabs">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="#" onclick="showSection('dashboard')">
+                            <i class="bi bi-house-door"></i>Главная
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" onclick="showSection('grades')">
+                            <i class="bi bi-journal-check"></i>Оценки
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" onclick="showSection('schedule')">
+                            <i class="bi bi-calendar-week"></i>Расписание
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" onclick="showSection('attendance')">
+                            <i class="bi bi-clipboard-check"></i>Посещаемость
+                        </a>
+                    </li>
+                    <li class="nav-item" id="adminTab" style="display:none;">
+                        <a class="nav-link" href="#" onclick="showSection('admin')">
+                            <i class="bi bi-shield-lock"></i>Админ панель
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+
+            <!-- Контент -->
+            <main>
+                <!-- Главная -->
+                <div id="dashboard" class="section active">
+                    <div class="card">
+                        <div class="card-header">
+                            <h2 class="mb-0"><i class="bi bi-house-door"></i> Общая информация</h2>
+                        </div>
+                        <div class="card-body">
+                            <p class="lead">Добро пожаловать в электронную зачетку!</p>
+                            <div class="row">
+                                <div class="col-lg-6">
+                                    <div class="alert alert-info border-0">
+                                        <h5 class="alert-heading mb-3">👤 Информация о пользователе</h5>
+                                        <div id="userDetails" class="mb-0"></div>
                                     </div>
                                 </div>
-                                
-                                <div class="mb-4">
-                                    <label class="form-label fw-semibold">Пароль</label>
-                                    <div class="input-group">
-                                        <span class="input-group-text"><i class="fas fa-lock"></i></span>
-                                        <input type="password" class="form-control" id="password" 
-                                               placeholder="Введите ваш пароль" required>
-                                    </div>
-                                </div>
-                                
-                                <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold">
-                                    <i class="fas fa-sign-in-alt me-2"></i>Войти в систему
-                                </button>
-                            </form>
-                            
-                            <div class="mt-4 p-3 bg-light rounded">
-                                <h6 class="fw-semibold mb-2">Тестовые доступы:</h6>
-                                <div class="row small">
-                                    <div class="col-4">
-                                        <strong>Админ</strong><br>
-                                        admin<br>admin123
-                                    </div>
-                                    <div class="col-4">
-                                        <strong>Преподаватель</strong><br>
-                                        teacher<br>teacher123
-                                    </div>
-                                    <div class="col-4">
-                                        <strong>Студент</strong><br>
-                                        student<br>student123
+                                <div class="col-lg-6">
+                                    <div class="stat-card">
+                                        <h3>📊 Быстрый доступ</h3>
+                                        <div class="d-grid gap-2 mt-3">
+                                            <button class="btn btn-outline-primary" onclick="showSection('grades')">
+                                                <i class="bi bi-journal-check"></i>Мои оценки
+                                            </button>
+                                            <button class="btn btn-outline-primary" onclick="showSection('schedule')">
+                                                <i class="bi bi-calendar-week"></i>Расписание
+                                            </button>
+                                            <button class="btn btn-outline-primary" onclick="showSection('attendance')">
+                                                <i class="bi bi-clipboard-check"></i>Посещаемость
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>
-        </div>
-    </div>
 
-    <!-- Основное приложение -->
-    <div id="mainApp" class="d-none">
-        <div class="theme-switch">
-            <button class="btn btn-outline-secondary btn-sm" onclick="toggleTheme()">
-                <i class="fas fa-moon"></i>
-            </button>
-        </div>
-        
-        <!-- Контейнер для уведомлений -->
-        <div class="notification-container" id="notifications"></div>
-        
-        <div class="container-fluid">
-            <div class="row">
-                <!-- Боковая панель -->
-                <nav class="col-md-3 col-lg-2 sidebar p-0">
-                    <div class="position-sticky pt-3">
-                        <div class="text-center mb-4 p-3">
-                            <i class="fas fa-graduation-cap fa-2x text-white mb-2"></i>
-                            <h5 class="text-white mb-0">Электронная Зачётка</h5>
-                            <small class="text-white-50" id="userInfoSidebar"></small>
+                <!-- Оценки -->
+                <div id="grades" class="section">
+                    <div class="card">
+                        <div class="card-header">
+                            <h2 class="mb-0"><i class="bi bi-journal-check"></i> Мои оценки</h2>
                         </div>
-                        
-                        <ul class="nav flex-column">
-                            <li class="nav-item">
-                                <a class="nav-link active" href="#" data-section="dashboard">
-                                    <i class="fas fa-tachometer-alt me-2"></i>Панель управления
-                                </a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" href="#" data-section="students" id="studentsNavItem">
-                                    <i class="fas fa-users me-2"></i>Студенты
-                                </a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" href="#" data-section="grades">
-                                    <i class="fas fa-book me-2"></i>Журнал оценок
-                                </a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" href="#" data-section="statistics">
-                                    <i class="fas fa-chart-bar me-2"></i>Статистика
-                                </a>
-                            </li>
-                             <!-- В навигационном меню добавьте: -->
-                            <li class="nav-item">
-                                <a class="nav-link" href="#" data-section="schedule">
-                                    <i class="fas fa-calendar-alt me-2"></i>Расписание
-                                </a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" href="#" data-section="attendance">
-                                    <i class="fas fa-clipboard-check me-2"></i>Посещаемость
-                                </a>
-                            </li>
-                            <li class="nav-item mt-4">
-                                <a class="nav-link text-warning" href="#" data-action="logout">
-                                    <i class="fas fa-sign-out-alt me-2"></i>Выйти
-                                </a>
-                            </li>
-                           
-                        </ul>
-                    </div>
-                </nav>
-
-                <!-- Основной контент -->
-                <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content">
-                    <!-- Заголовок и уведомления -->
-                    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-                        <h1 id="pageTitle" class="h2">Панель управления</h1>
-                        <div class="btn-toolbar mb-2 mb-md-0">
-                            <div class="btn-group me-2">
-                                <span class="badge bg-primary fs-6" id="currentSemester">Семестр 1, 2024</span>
+                        <div class="card-body">
+                            <div id="gradesList" class="text-center py-4">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Загрузка...</span>
+                                </div>
+                                <p class="mt-2">Загрузка оценок...</p>
                             </div>
                         </div>
                     </div>
+                </div>
 
-                    <!-- Контент разделов -->
-                    <div id="sectionsContent">
-                        <!-- Разделы будут загружаться динамически -->
+                <!-- Расписание -->
+                <div id="schedule" class="section">
+                    <div class="card">
+                        <div class="card-header">
+                            <h2 class="mb-0"><i class="bi bi-calendar-week"></i> Расписание</h2>
+                        </div>
+                        <div class="card-body">
+                            <div id="scheduleList" class="text-center py-4">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Загрузка...</span>
+                                </div>
+                                <p class="mt-2">Загрузка расписания...</p>
+                            </div>
+                        </div>
                     </div>
-                </main>
-            </div>
+                </div>
+
+                <!-- Посещаемость -->
+                <div id="attendance" class="section">
+                    <div class="card">
+                        <div class="card-header">
+                            <h2 class="mb-0"><i class="bi bi-clipboard-check"></i> Посещаемость</h2>
+                        </div>
+                        <div class="card-body">
+                            <div id="attendanceList" class="text-center py-4">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Загрузка...</span>
+                                </div>
+                                <p class="mt-2">Загрузка посещаемости...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Админ панель -->
+                <div id="admin" class="section">
+                    <div class="card">
+                        <div class="card-header">
+                            <h2 class="mb-0"><i class="bi bi-shield-lock"></i> Панель администратора</h2>
+                        </div>
+                        <div class="card-body">
+                            <p class="lead">Административная панель управления системой.</p>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="stat-card">
+                                        <h3>👥 Управление пользователями</h3>
+                                        <p>Добавление и управление пользователями системы</p>
+                                        <button onclick="window.location.href='admin.html'" class="btn btn-primary w-100">
+                                            <i class="bi bi-people"></i> Перейти к управлению
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="stat-card">
+                                        <h3>📊 Статистика системы</h3>
+                                        <p>Просмотр общей статистики и аналитики</p>
+                                        <button onclick="window.location.href='admin.html'" class="btn btn-primary w-100">
+                                            <i class="bi bi-graph-up"></i> Смотреть статистику
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="js/app.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="js/app.js"></script>
+    <script>
+        let currentUser = null;
+        const token = localStorage.getItem('token');
+
+        // Проверяем авторизацию при загрузке
+        async function checkAuth() {
+            if (!token) {
+                window.location.href = 'login.html';
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/auth/me', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    currentUser = result.user;
+                    displayUserInfo();
+                    
+                    // Показываем админ вкладку если пользователь админ
+                    if (currentUser.role === 'admin') {
+                        document.getElementById('adminTab').style.display = 'block';
+                    }
+                    
+                    // Загружаем данные для текущей секции
+                    loadSectionData('dashboard');
+                } else {
+                    localStorage.removeItem('token');
+                    window.location.href = 'login.html';
+                }
+            } catch (error) {
+                console.error('Auth error:', error);
+                localStorage.removeItem('token');
+                window.location.href = 'login.html';
+            }
+        }
+
+        function displayUserInfo() {
+            document.getElementById('userName').textContent = currentUser.username;
+            
+            let roleText = '';
+            let roleClass = '';
+            switch(currentUser.role) {
+                case 'admin': 
+                    roleText = 'Администратор'; 
+                    roleClass = 'role-admin';
+                    break;
+                case 'teacher': 
+                    roleText = 'Преподаватель'; 
+                    roleClass = 'role-teacher';
+                    break;
+                case 'student': 
+                    roleText = 'Студент'; 
+                    roleClass = 'role-student';
+                    break;
+            }
+            
+            document.getElementById('userDetails').innerHTML = `
+                <p class="mb-2"><strong>👤 Логин:</strong> ${currentUser.username}</p>
+                <p class="mb-2"><strong>🎯 Роль:</strong> <span class="${roleClass} role-badge">${roleText}</span></p>
+                ${currentUser.student_id ? `<p class="mb-2"><strong>🎓 ID студента:</strong> ${currentUser.student_id}</p>` : ''}
+                ${currentUser.teacher_id ? `<p class="mb-0"><strong>👨‍🏫 ID преподавателя:</strong> ${currentUser.teacher_id}</p>` : ''}
+            `;
+        }
+
+        function showSection(sectionName) {
+            // Скрываем все секции
+            const sections = document.getElementsByClassName('section');
+            for (let i = 0; i < sections.length; i++) {
+                sections[i].classList.remove('active');
+            }
+
+            // Убираем активный класс у всех вкладок
+            const navLinks = document.querySelectorAll('.nav-link');
+            navLinks.forEach(link => link.classList.remove('active'));
+
+            // Показываем выбранную секцию
+            document.getElementById(sectionName).classList.add('active');
+            
+            // Добавляем активный класс к нажатой вкладке
+            event.currentTarget.classList.add('active');
+
+            // Загружаем данные для секции
+            loadSectionData(sectionName);
+        }
+
+        async function loadSectionData(sectionName) {
+            switch(sectionName) {
+                case 'grades':
+                    await loadGrades();
+                    break;
+                case 'schedule':
+                    await loadSchedule();
+                    break;
+                case 'attendance':
+                    await loadAttendance();
+                    break;
+                case 'dashboard':
+                    await loadDashboard();
+                    break;
+            }
+        }
+
+        async function loadGrades() {
+            try {
+                let url = '';
+                let title = '';
+                
+                if (currentUser.role === 'student' && currentUser.student_id) {
+                    url = `/api/grades/student/${currentUser.student_id}`;
+                    title = 'Мои оценки';
+                } else if (currentUser.role === 'teacher' && currentUser.teacher_id) {
+                    url = `/api/grades/teacher/${currentUser.teacher_id}`;
+                    title = 'Оценки студентов';
+                } else {
+                    document.getElementById('gradesList').innerHTML = `
+                        <div class="alert alert-info">
+                            <h5>Информация об оценках</h5>
+                            <p>Функциональность оценок доступна для студентов и преподавателей.</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                const response = await fetch(url, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                const result = await response.json();
+                
+                if (result.success && result.data.length > 0) {
+                    let html = `
+                        <h5 class="mb-4">${title}</h5>
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                    `;
+                    
+                    if (currentUser.role === 'student') {
+                        html += `
+                            <th>Предмет</th>
+                            <th>Оценка</th>
+                            <th>Тип</th>
+                            <th>Дата</th>
+                            <th>Преподаватель</th>
+                        `;
+                    } else {
+                        html += `
+                            <th>Студент</th>
+                            <th>Группа</th>
+                            <th>Предмет</th>
+                            <th>Оценка</th>
+                            <th>Тип</th>
+                            <th>Дата</th>
+                        `;
+                    }
+                    
+                    html += `</tr></thead><tbody>`;
+                    
+                    result.data.forEach(grade => {
+                        if (currentUser.role === 'student') {
+                            html += `
+                                <tr>
+                                    <td>${grade.subject_name || 'Не указан'}</td>
+                                    <td>
+                                        <span class="badge bg-${grade.grade >= 4 ? 'success' : grade.grade >= 3 ? 'warning' : 'danger'} fs-6">
+                                            ${grade.grade}
+                                        </span>
+                                    </td>
+                                    <td>${grade.grade_type || 'Не указан'}</td>
+                                    <td>${new Date(grade.date).toLocaleDateString()}</td>
+                                    <td>${grade.teacher_name || 'Не указан'}</td>
+                                </tr>
+                            `;
+                        } else {
+                            html += `
+                                <tr>
+                                    <td>${grade.student_name || 'Не указан'}</td>
+                                    <td>${grade.group_name || 'Не указан'}</td>
+                                    <td>${grade.subject_name || 'Не указан'}</td>
+                                    <td>
+                                        <span class="badge bg-${grade.grade >= 4 ? 'success' : grade.grade >= 3 ? 'warning' : 'danger'} fs-6">
+                                            ${grade.grade}
+                                        </span>
+                                    </td>
+                                    <td>${grade.grade_type || 'Не указан'}</td>
+                                    <td>${new Date(grade.date).toLocaleDateString()}</td>
+                                </tr>
+                            `;
+                        }
+                    });
+                    
+                    html += `</tbody></table></div>`;
+                    document.getElementById('gradesList').innerHTML = html;
+                } else {
+                    document.getElementById('gradesList').innerHTML = `
+                        <div class="alert alert-warning">
+                            <h5>Оценки не найдены</h5>
+                            <p>${currentUser.role === 'student' ? 'У вас пока нет оценок.' : 'Вы пока не поставили ни одной оценки.'}</p>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Error loading grades:', error);
+                document.getElementById('gradesList').innerHTML = `
+                    <div class="alert alert-danger">
+                        <h5>Ошибка загрузки</h5>
+                        <p>Не удалось загрузить данные об оценках.</p>
+                    </div>
+                `;
+            }
+        }
+
+        async function loadSchedule() {
+            try {
+                let url = '';
+                if (currentUser.role === 'student' && currentUser.student_id) {
+                    url = `/api/schedule/student/${currentUser.student_id}`;
+                } else if (currentUser.role === 'teacher' && currentUser.teacher_id) {
+                    url = `/api/schedule/teacher/${currentUser.teacher_id}`;
+                } else {
+                    document.getElementById('scheduleList').innerHTML = `
+                        <div class="alert alert-info">
+                            <h5>Расписание</h5>
+                            <p>Функциональность расписания доступна для студентов и преподавателей.</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                const response = await fetch(url, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                const result = await response.json();
+                
+                if (result.success && result.data.schedule && result.data.schedule.length > 0) {
+                    const schedule = result.data.schedule;
+                    let html = `
+                        <h5 class="mb-4">Мое расписание</h5>
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>День</th>
+                                        <th>Время</th>
+                                        <th>Предмет</th>
+                                        <th>Преподаватель</th>
+                                        <th>Аудитория</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                    `;
+                    
+                    const days = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота'];
+                    
+                    schedule.forEach(item => {
+                        html += `
+                            <tr>
+                                <td>${days[item.day_of_week - 1] || item.day_of_week}</td>
+                                <td>${item.start_time} - ${item.end_time}</td>
+                                <td>${item.subject_name || 'Не указан'}</td>
+                                <td>${item.teacher_name || 'Не указан'}</td>
+                                <td>${item.classroom || 'Не указана'}</td>
+                            </tr>
+                        `;
+                    });
+                    
+                    html += `</tbody></table></div>`;
+                    document.getElementById('scheduleList').innerHTML = html;
+                } else {
+                    document.getElementById('scheduleList').innerHTML = `
+                        <div class="alert alert-warning">
+                            <h5>Расписание не найдено</h5>
+                            <p>Расписание для вас пока не составлено.</p>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Error loading schedule:', error);
+                document.getElementById('scheduleList').innerHTML = `
+                    <div class="alert alert-danger">
+                        <h5>Ошибка загрузки</h5>
+                        <p>Не удалось загрузить расписание.</p>
+                    </div>
+                `;
+            }
+        }
+
+        async function loadAttendance() {
+    try {
+        if (currentUser.role === 'student' && currentUser.student_id) {
+            // Существующий код для студентов...
+            const response = await fetch(`/api/attendance/student/${currentUser.student_id}`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            const result = await response.json();
+            
+            if (result.success && result.data.attendance && result.data.attendance.length > 0) {
+                const attendance = result.data.attendance;
+                let html = `
+                    <h5 class="mb-4">Моя посещаемость</h5>
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Дата</th>
+                                    <th>Предмет</th>
+                                    <th>Статус</th>
+                                    <th>Преподаватель</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                `;
+                
+                attendance.forEach(item => {
+                    const statusBadge = item.status === 'present' ? 
+                        '<span class="badge bg-success">Присутствовал</span>' :
+                        '<span class="badge bg-danger">Отсутствовал</span>';
+                    
+                    html += `
+                        <tr>
+                            <td>${new Date(item.date).toLocaleDateString()}</td>
+                            <td>${item.subject_name || 'Не указан'}</td>
+                            <td>${statusBadge}</td>
+                            <td>${item.teacher_name || 'Не указан'}</td>
+                        </tr>
+                    `;
+                });
+                
+                html += `</tbody></table></div>`;
+                document.getElementById('attendanceList').innerHTML = html;
+            } else {
+                document.getElementById('attendanceList').innerHTML = `
+                    <div class="alert alert-warning">
+                        <h5>Данные о посещаемости не найдены</h5>
+                        <p>У вас пока нет записей о посещаемости.</p>
+                    </div>
+                `;
+            }
+        } else if (currentUser.role === 'teacher' && currentUser.teacher_id) {
+            // НОВЫЙ КОД ДЛЯ ПРЕПОДАВАТЕЛЕЙ
+            await loadTeacherAttendance();
+        } else {
+            document.getElementById('attendanceList').innerHTML = `
+                <div class="alert alert-info">
+                    <h5>Посещаемость</h5>
+                    <p>Функциональность посещаемости доступна для студентов и преподавателей.</p>
+                </div>
+            `;
+        }
+    } catch (error) {
+        console.error('Error loading attendance:', error);
+        document.getElementById('attendanceList').innerHTML = `
+            <div class="alert alert-danger">
+                <h5>Ошибка загрузки</h5>
+                <p>Не удалось загрузить данные о посещаемости.</p>
+            </div>
+        `;
+    }
+}
+
+// НОВАЯ ФУНКЦИЯ для загрузки интерфейса посещаемости преподавателя
+async function loadTeacherAttendance() {
+    try {
+        // Загружаем группы и предметы преподавателя
+        const [groupsResponse, subjectsResponse] = await Promise.all([
+            fetch(`/api/teacher/${currentUser.teacher_id}/groups`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            }),
+            fetch(`/api/teacher/${currentUser.teacher_id}/subjects`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            })
+        ]);
+
+        const groupsResult = await groupsResponse.json();
+        const subjectsResult = await subjectsResponse.json();
+
+        if (!groupsResult.success || !subjectsResult.success) {
+            throw new Error('Ошибка загрузки данных');
+        }
+
+        let html = `
+            <h5 class="mb-4">📊 Отметка посещаемости</h5>
+            <div class="row mb-4">
+                <div class="col-md-4">
+                    <label class="form-label">Группа:</label>
+                    <select id="attendanceGroup" class="form-select" onchange="loadAttendanceStudents()">
+                        <option value="">Выберите группу</option>
+        `;
+
+        groupsResult.data.forEach(group => {
+            html += `<option value="${group.id}">${group.name}</option>`;
+        });
+
+        html += `
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Предмет:</label>
+                    <select id="attendanceSubject" class="form-select" onchange="loadAttendanceStudents()">
+                        <option value="">Выберите предмет</option>
+        `;
+
+        subjectsResult.data.forEach(subject => {
+            html += `<option value="${subject.id}">${subject.name} (${subject.group_name})</option>`;
+        });
+
+        html += `
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Дата:</label>
+                    <input type="date" id="attendanceDate" class="form-control" value="${new Date().toISOString().split('T')[0]}" onchange="loadAttendanceStudents()">
+                </div>
+            </div>
+            
+            <div id="attendanceStudentsContainer">
+                <div class="alert alert-info text-center">
+                    <i class="bi bi-info-circle"></i> Выберите группу, предмет и дату для отметки посещаемости
+                </div>
+            </div>
+        `;
+
+        document.getElementById('attendanceList').innerHTML = html;
+    } catch (error) {
+        console.error('Error loading teacher attendance:', error);
+        document.getElementById('attendanceList').innerHTML = `
+            <div class="alert alert-danger">
+                <h5>Ошибка загрузки</h5>
+                <p>Не удалось загрузить интерфейс отметки посещаемости.</p>
+            </div>
+        `;
+    }
+}
+
+// Функция загрузки студентов для отметки посещаемости
+async function loadAttendanceStudents() {
+    const groupId = document.getElementById('attendanceGroup').value;
+    const subjectId = document.getElementById('attendanceSubject').value;
+    const date = document.getElementById('attendanceDate').value;
+
+    if (!groupId || !subjectId || !date) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/groups/${groupId}/students-with-attendance?date=${date}&subjectId=${subjectId}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+
+        const result = await response.json();
+        
+        if (result.success) {
+            let html = `
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0">Список студентов</h6>
+                    </div>
+                    <div class="card-body">
+                        <form id="attendanceForm">
+                            <div class="table-responsive">
+                                <table class="table table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>Студент</th>
+                                            <th>Номер зачетки</th>
+                                            <th>Статус</th>
+                                            <th>Примечания</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+            `;
+
+            result.data.forEach(student => {
+                const isPresent = student.status === 'present';
+                html += `
+                    <tr>
+                        <td>${student.name}</td>
+                        <td>${student.student_card}</td>
+                        <td>
+                            <div class="btn-group btn-group-sm" role="group">
+                                <input type="radio" class="btn-check" name="status_${student.id}" id="present_${student.id}" value="present" ${isPresent ? 'checked' : ''}>
+                                <label class="btn btn-outline-success" for="present_${student.id}">Присут.</label>
+                                
+                                <input type="radio" class="btn-check" name="status_${student.id}" id="absent_${student.id}" value="absent" ${!isPresent ? 'checked' : ''}>
+                                <label class="btn btn-outline-danger" for="absent_${student.id}">Отсут.</label>
+                            </div>
+                        </td>
+                        <td>
+                            <input type="text" class="form-control form-control-sm" name="notes_${student.id}" value="${student.notes || ''}" placeholder="Примечание">
+                        </td>
+                    </tr>
+                `;
+            });
+
+            html += `
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="text-center mt-3">
+                                <button type="button" class="btn btn-primary" onclick="saveAttendance()">
+                                    <i class="bi bi-check-circle"></i> Сохранить посещаемость
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('attendanceStudentsContainer').innerHTML = html;
+        }
+    } catch (error) {
+        console.error('Error loading students:', error);
+        document.getElementById('attendanceStudentsContainer').innerHTML = `
+            <div class="alert alert-danger">
+                <h5>Ошибка загрузки</h5>
+                <p>Не удалось загрузить список студентов.</p>
+            </div>
+        `;
+    }
+}
+
+// Функция сохранения посещаемости
+async function saveAttendance() {
+    const groupId = document.getElementById('attendanceGroup').value;
+    const subjectId = document.getElementById('attendanceSubject').value;
+    const date = document.getElementById('attendanceDate').value;
+
+    if (!groupId || !subjectId || !date) {
+        alert('Пожалуйста, выберите группу, предмет и дату');
+        return;
+    }
+
+    try {
+        // Собираем данные о посещаемости
+        const attendanceRecords = [];
+        const form = document.getElementById('attendanceForm');
+        const inputs = form.querySelectorAll('input[type="radio"]:checked, input[type="text"]');
+
+        // Группируем данные по студентам
+        const studentData = {};
+        inputs.forEach(input => {
+            const match = input.name.match(/(status|notes)_(\d+)/);
+            if (match) {
+                const [, type, studentId] = match;
+                if (!studentData[studentId]) {
+                    studentData[studentId] = {};
+                }
+                studentData[studentId][type] = input.value;
+            }
+        });
+
+        // Формируем массив записей
+        Object.keys(studentData).forEach(studentId => {
+            if (studentData[studentId].status) {
+                attendanceRecords.push({
+                    student_id: parseInt(studentId),
+                    status: studentData[studentId].status,
+                    notes: studentData[studentId].notes || ''
+                });
+            }
+        });
+
+        // Отправляем на сервер
+        const response = await fetch('/api/teacher/attendance', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                date: date,
+                subject_id: parseInt(subjectId),
+                group_id: parseInt(groupId),
+                attendance_records: attendanceRecords
+            })
+        });
+
+        const result = await response.json();
+        
+        if (result.success) {
+            alert('✅ Посещаемость успешно сохранена!');
+            // Перезагружаем список студентов для обновления статусов
+            loadAttendanceStudents();
+        } else {
+            alert('❌ Ошибка сохранения: ' + result.error);
+        }
+    } catch (error) {
+        console.error('Error saving attendance:', error);
+        alert('❌ Ошибка сохранения посещаемости');
+    }
+}
+
+        async function loadDashboard() {
+            // Можно добавить статистику или другую информацию на главную
+            console.log('Dashboard loaded');
+        }
+
+        function logout() {
+            localStorage.removeItem('token');
+            window.location.href = 'login.html';
+        }
+
+        // Запускаем проверку авторизации
+        checkAuth();
+    </script>
 </body>
 </html>
