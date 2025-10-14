@@ -1359,7 +1359,8 @@ async function loadTeacherGroupsForReports() {
 // Генерация отчета по студенту
 async function generateStudentReport() {
     try {
-        const reportUrl = `/api/reports/student/${currentUser.student_id}`;
+        const token = localStorage.getItem('token');
+        const reportUrl = `/api/reports/student/${currentUser.student_id}?token=${token}`;
         window.open(reportUrl, '_blank');
         
         document.getElementById('reportResult').innerHTML = `
@@ -1387,7 +1388,8 @@ async function generateGroupReport() {
     }
 
     try {
-        const reportUrl = `/api/reports/group/${groupId}`;
+        const token = localStorage.getItem('token');
+        const reportUrl = `/api/reports/group/${groupId}?token=${token}`;
         window.open(reportUrl, '_blank');
         
         document.getElementById('reportResult').innerHTML = `

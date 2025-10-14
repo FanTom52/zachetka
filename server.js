@@ -44,6 +44,36 @@ const authenticateToken = (req, res, next) => {
     });
 };
 
+// Middleware для проверки токена из query параметра или headers
+const authenticateTokenFromQuery = (req, res, next) => {
+    // Пробуем получить токен из query параметра
+    const tokenFromQuery = req.query.token;
+    
+    // Пробуем получить токен из headers
+    const authHeader = req.headers['authorization'];
+    const tokenFromHeader = authHeader && authHeader.split(' ')[1];
+
+    const token = tokenFromQuery || tokenFromHeader;
+
+    if (!token) {
+        return res.status(401).json({ 
+            success: false, 
+            error: 'Требуется авторизация' 
+        });
+    }
+
+    jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+        if (err) {
+            return res.status(403).json({ 
+                success: false, 
+                error: 'Недействительный токен' 
+            });
+        }
+        req.user = user;
+        next();
+    });
+};
+
 // 📍 Маршруты аутентификации
 app.post('/api/auth/login', async (req, res) => {
     try {
@@ -1235,10 +1265,18 @@ app.get('/api/teacher/:teacherId/recent-grades', authenticateToken, async (req, 
 });
 
 // 📍 Генерация отчета по студенту
-app.get('/api/reports/student/:studentId', authenticateToken, async (req, res) => {
+app.get('/api/reports/student/:studentId', authenticateTokenFromQuery, async (req, res) => {
     try {
         const { studentId } = req.params;
         const { format = 'html' } = req.query;
+
+        // Проверяем права доступа
+        if (req.user.role === 'student' && req.user.student_id != studentId) {
+            return res.status(403).json({
+                success: false,
+                error: 'Доступ запрещен'
+            });
+        }
 
         // Получаем данные студента
         const studentData = await database.query(`
@@ -1323,10 +1361,30 @@ app.get('/api/reports/student/:studentId', authenticateToken, async (req, res) =
 });
 
 // 📍 Генерация отчета по группе
-app.get('/api/reports/group/:groupId', authenticateToken, async (req, res) => {
+app.get('/api/reports/group/:groupId', authenticateTokenFromQuery, async (req, res) => {
     try {
         const { groupId } = req.params;
         const { format = 'html' } = req.query;
+
+        // Проверяем права доступа для преподавателей
+        if (req.user.role === 'teacher') {
+            const teacherGroups = await database.query(`
+                SELECT DISTINCT g.id
+                FROM groups g
+                LEFT JOIN students s ON g.id = s.group_id
+                LEFT JOIN grades gr ON s.id = gr.student_id
+                LEFT JOIN subjects sub ON gr.subject_id = sub.id
+                WHERE sub.teacher_id = ? OR gr.teacher_id = ?
+            `, [req.user.teacher_id, req.user.teacher_id]);
+
+            const hasAccess = teacherGroups.some(group => group.id == groupId);
+            if (!hasAccess) {
+                return res.status(403).json({
+                    success: false,
+                    error: 'Доступ запрещен'
+                });
+            }
+        }
 
         // Получаем данные группы
         const groupData = await database.query('SELECT * FROM groups WHERE id = ?', [groupId]);
