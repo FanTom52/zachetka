@@ -1750,6 +1750,8 @@ class GradebookApp {
         }, 5000);
     }
 
+    
+
     logout() {
         localStorage.removeItem('authToken');
         localStorage.removeItem('currentUser');
@@ -1763,6 +1765,45 @@ class GradebookApp {
         this.showNotification('Вы вышли из системы', 'info');
     }
 }
+
+// Добавим функции для экспорта в PDF
+function exportStudentToPDF(studentId) {
+    const url = `/api/statistics/student/${studentId}/pdf`;
+    window.open(url, '_blank');
+}
+
+function exportGroupToPDF(groupId) {
+    const url = `/api/statistics/group/${groupId}/pdf`;
+    window.open(url, '_blank');
+}
+
+// Обновим HTML отчеты, добавив кнопки PDF
+function enhanceReportButtons() {
+    // Находим все кнопки отчетов и добавляем PDF экспорт
+    document.querySelectorAll('.report-actions').forEach(container => {
+        const studentId = container.dataset.studentId;
+        const groupId = container.dataset.groupId;
+        
+        if (studentId) {
+            const pdfBtn = document.createElement('button');
+            pdfBtn.className = 'btn btn-pdf';
+            pdfBtn.innerHTML = '📄 Экспорт в PDF';
+            pdfBtn.onclick = () => exportStudentToPDF(studentId);
+            container.appendChild(pdfBtn);
+        }
+        
+        if (groupId) {
+            const pdfBtn = document.createElement('button');
+            pdfBtn.className = 'btn btn-pdf';
+            pdfBtn.innerHTML = '📄 Экспорт в PDF';
+            pdfBtn.onclick = () => exportGroupToPDF(groupId);
+            container.appendChild(pdfBtn);
+        }
+    });
+}
+
+// Вызываем при загрузке страницы
+document.addEventListener('DOMContentLoaded', enhanceReportButtons);
 
 // 🎯 Инициализация приложения
 let app;

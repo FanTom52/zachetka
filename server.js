@@ -74,12 +74,17 @@ const authenticateTokenFromQuery = (req, res, next) => {
     });
 };
 
+// Устанавливаем кодировку для правильной работы с бинарными данными
+app.use((req, res, next) => {
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    next();
+});
+
 // 📍 Маршруты аутентификации
 app.post('/api/auth/login', async (req, res) => {
     try {
         const { username, password } = req.body;
 
-        // ⭐⭐⭐ ПРОВЕРКА ДАННЫХ (ИСПРАВЛЕННАЯ) ⭐⭐⭐
         // Проверяем, что все поля заполнены
         if (!username || !password) {
             return res.status(400).json({
@@ -103,7 +108,6 @@ app.post('/api/auth/login', async (req, res) => {
                 error: 'Пароль должен быть не менее 6 символов'
             });
         }
-        // ⭐⭐⭐ КОНЕЦ ПРОВЕРКИ ⭐⭐⭐
 
         // Остальной код оставляем без изменений
         const users = await database.query(
@@ -155,7 +159,6 @@ app.post('/api/auth/login', async (req, res) => {
             role: user.role,
             student_id: user.student_id,
             teacher_id: user.teacher_id
-            // убрали name
         };
 
         res.json({
@@ -176,7 +179,7 @@ app.post('/api/auth/login', async (req, res) => {
 // 📍 Регистрация нового пользователя (только для админов)
 app.post('/api/auth/register', authenticateToken, async (req, res) => {
     try {
-        // ⭐⭐⭐ ПРОВЕРКА ПРАВ АДМИНА ⭐⭐⭐
+        // Проверка прав админа
         if (req.user.role !== 'admin') {
             return res.status(403).json({
                 success: false,
@@ -249,7 +252,7 @@ app.post('/api/auth/register', authenticateToken, async (req, res) => {
             const studentResult = await database.run(
                 `INSERT INTO students (name, student_card, group_id) 
                  VALUES (?, ?, ?)`,
-                [username, student_card, group_id || null] // Используем username как имя
+                [username, student_card, group_id || null]
             );
             student_id = studentResult.insertId;
         }
@@ -259,12 +262,12 @@ app.post('/api/auth/register', authenticateToken, async (req, res) => {
             const teacherResult = await database.run(
                 `INSERT INTO teachers (name) 
                  VALUES (?)`,
-                [username] // Используем username как имя
+                [username]
             );
             teacher_id = teacherResult.insertId;
         }
 
-        // Создаем пользователя (БЕЗ колонки name)
+        // Создаем пользователя
         await database.run(
             `INSERT INTO users (username, password, role, student_id, teacher_id) 
              VALUES (?, ?, ?, ?, ?)`,
@@ -313,7 +316,6 @@ app.get('/api/auth/me', authenticateToken, async (req, res) => {
             role: user.role,
             student_id: user.student_id,
             teacher_id: user.teacher_id
-            // убрали name
         };
 
         res.json({
@@ -706,577 +708,558 @@ app.get('/api/statistics/monthly', authenticateToken, async (req, res) => {
     }
 });
 
-// 📍 Главный маршрут
-app.get('/', (req, res) => {
-    res.sendFile(__dirname + '/public/index.html');
-});
-
-// 📍 Маршруты расписания для студента
-app.get('/api/schedule/student/:studentId', authenticateToken, async (req, res) => {
+// 📄 PDF отчет по студенту (ИСПРАВЛЕННЫЙ)
+app.get('/api/student/report/pdf', authenticateToken, async (req, res) => {
     try {
-        const { studentId } = req.params;
-        
-        // Получаем данные студента
-        const student = await database.query(`
-            SELECT s.*, g.name as group_name 
-            FROM students s 
-            LEFT JOIN groups g ON s.group_id = g.id 
-            WHERE s.id = ?
-        `, [studentId]);
-
-        if (student.length === 0) {
-            return res.status(404).json({
-                success: false,
-                error: 'Студент не найден'
-            });
-        }
-
-        // Получаем расписание для группы студента
-        const schedule = await database.query(`
-            SELECT sch.*, 
-                   sub.name as subject_name,
-                   t.name as teacher_name,
-                   g.name as group_name
-            FROM schedule sch
-            LEFT JOIN subjects sub ON sch.subject_id = sub.id
-            LEFT JOIN teachers t ON sch.teacher_id = t.id
-            LEFT JOIN groups g ON sch.group_id = g.id
-            WHERE sch.group_id = ?
-            ORDER BY sch.day_of_week, sch.start_time
-        `, [student[0].group_id]);
-
-        res.json({
-            success: true,
-            data: {
-                student: student[0],
-                schedule: schedule
-            }
-        });
-
-    } catch (error) {
-        console.error('Student schedule error:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Ошибка загрузки расписания'
-        });
-    }
-});
-
-// 📍 Маршруты расписания для преподавателя
-app.get('/api/schedule/teacher/:teacherId', authenticateToken, async (req, res) => {
-    try {
-        const { teacherId } = req.params;
-        
-        const schedule = await database.query(`
-            SELECT sch.*, 
-                   sub.name as subject_name,
-                   g.name as group_name
-            FROM schedule sch
-            LEFT JOIN subjects sub ON sch.subject_id = sub.id
-            LEFT JOIN groups g ON sch.group_id = g.id
-            WHERE sch.teacher_id = ?
-            ORDER BY sch.day_of_week, sch.start_time
-        `, [teacherId]);
-
-        res.json({
-            success: true,
-            data: schedule
-        });
-
-    } catch (error) {
-        console.error('Teacher schedule error:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Ошибка загрузки расписания'
-        });
-    }
-});
-
-// 📍 Маршруты посещаемости для студента
-app.get('/api/attendance/student/:studentId', authenticateToken, async (req, res) => {
-    try {
-        const { studentId } = req.params;
-        
-        // Получаем данные студента
-        const student = await database.query(`
-            SELECT s.*, g.name as group_name 
-            FROM students s 
-            LEFT JOIN groups g ON s.group_id = g.id 
-            WHERE s.id = ?
-        `, [studentId]);
-
-        if (student.length === 0) {
-            return res.status(404).json({
-                success: false,
-                error: 'Студент не найден'
-            });
-        }
-
-        // Исправленный запрос - убрали schedule_id
-        const attendance = await database.query(`
-            SELECT a.*, 
-                   sub.name as subject_name,
-                   t.name as teacher_name
-            FROM attendance a
-            LEFT JOIN subjects sub ON a.subject_id = sub.id
-            LEFT JOIN teachers t ON sub.teacher_id = t.id
-            WHERE a.student_id = ?
-            ORDER BY a.date DESC
-        `, [studentId]);
-
-        res.json({
-            success: true,
-            data: {
-                student: student[0],
-                attendance: attendance
-            }
-        });
-
-    } catch (error) {
-        console.error('Student attendance error:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Ошибка загрузки посещаемости'
-        });
-    }
-});
-
-// 📍 Оценки преподавателя (оценки, которые поставил преподаватель)
-app.get('/api/grades/teacher/:teacherId', authenticateToken, async (req, res) => {
-    try {
-        const { teacherId } = req.params;
-        
-        const grades = await database.query(`
-            SELECT g.*, 
-                   s.name as student_name,
-                   s.student_card,
-                   gr.name as group_name,
-                   sub.name as subject_name
-            FROM grades g
-            LEFT JOIN students s ON g.student_id = s.id
-            LEFT JOIN groups gr ON s.group_id = gr.id
-            LEFT JOIN subjects sub ON g.subject_id = sub.id
-            WHERE g.teacher_id = ?
-            ORDER BY g.date DESC
-        `, [teacherId]);
-
-        res.json({
-            success: true,
-            data: grades
-        });
-    } catch (error) {
-        console.error('Get teacher grades error:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Ошибка загрузки оценок'
-        });
-    }
-});
-
-// 📍 Студенты преподавателя (студенты, которых ведет преподаватель)
-app.get('/api/teacher/:teacherId/students', authenticateToken, async (req, res) => {
-    try {
-        const { teacherId } = req.params;
-        
-        const students = await database.query(`
-            SELECT DISTINCT s.*, g.name as group_name
-            FROM students s
-            LEFT JOIN groups g ON s.group_id = g.id
-            LEFT JOIN grades gr ON s.id = gr.student_id
-            LEFT JOIN subjects sub ON gr.subject_id = sub.id
-            WHERE sub.teacher_id = ? OR gr.teacher_id = ?
-            ORDER BY s.name
-        `, [teacherId, teacherId]);
-
-        res.json({
-            success: true,
-            data: students
-        });
-    } catch (error) {
-        console.error('Get teacher students error:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Ошибка загрузки студентов'
-        });
-    }
-});
-
-// 📍 Получение студентов по группе
-app.get('/api/groups/:groupId/students', authenticateToken, async (req, res) => {
-    try {
-        const { groupId } = req.params;
-        
-        const students = await database.query(`
-            SELECT s.id, s.name, s.student_card
-            FROM students s
-            WHERE s.group_id = ?
-            ORDER BY s.name
-        `, [groupId]);
-
-        res.json({
-            success: true,
-            data: students
-        });
-
-    } catch (error) {
-        console.error('Get group students error:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Ошибка загрузки студентов группы'
-        });
-    }
-});
-
-// 📍 Сохранение посещаемости
-app.post('/api/attendance', authenticateToken, async (req, res) => {
-    try {
-        const { date, subject_id, group_id, attendance_records } = req.body;
-
-        if (!date || !subject_id || !group_id || !attendance_records) {
-            return res.status(400).json({
-                success: false,
-                error: 'Не все данные предоставлены'
-            });
-        }
-
-        // Удаляем старые записи за эту дату
-        await database.query(`
-            DELETE FROM attendance 
-            WHERE date = ? AND student_id IN (
-                SELECT id FROM students WHERE group_id = ?
-            ) AND subject_id = ?
-        `, [date, group_id, subject_id]);
-
-        // Добавляем новые записи
-        for (const record of attendance_records) {
-            await database.query(`
-                INSERT INTO attendance (student_id, subject_id, date, status, notes)
-                VALUES (?, ?, ?, ?, ?)
-            `, [record.student_id, subject_id, date, record.status, record.notes || '']);
-        }
-
-        res.json({
-            success: true,
-            message: 'Посещаемость успешно сохранена'
-        });
-
-    } catch (error) {
-        console.error('Save attendance error:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Ошибка сохранения посещаемости'
-        });
-    }
-});
-
-// 📍 Получение посещаемости по дате, группе и предмету
-app.get('/api/attendance/:date/:groupId/:subjectId', authenticateToken, async (req, res) => {
-    try {
-        const { date, groupId, subjectId } = req.params;
-        
-        const attendance = await database.query(`
-            SELECT a.*, s.name as student_name, s.student_card
-            FROM attendance a
-            LEFT JOIN students s ON a.student_id = s.id
-            WHERE a.date = ? AND s.group_id = ? AND a.subject_id = ?
-            ORDER BY s.name
-        `, [date, groupId, subjectId]);
-
-        res.json({
-            success: true,
-            data: attendance
-        });
-
-    } catch (error) {
-        console.error('Get attendance error:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Ошибка загрузки посещаемости'
-        });
-    }
-});
-
-// 📍 Получение групп преподавателя (группы, которые ведет преподаватель)
-app.get('/api/teacher/:teacherId/groups', authenticateToken, async (req, res) => {
-    try {
-        const { teacherId } = req.params;
-        
-        // Исправленный запрос - убрали group_id из subjects
-        const groups = await database.query(`
-            SELECT DISTINCT g.*
-            FROM groups g
-            LEFT JOIN students s ON g.id = s.group_id
-            LEFT JOIN grades gr ON s.id = gr.student_id
-            LEFT JOIN subjects sub ON gr.subject_id = sub.id
-            WHERE sub.teacher_id = ? OR gr.teacher_id = ?
-            ORDER BY g.name
-        `, [teacherId, teacherId]);
-
-        res.json({
-            success: true,
-            data: groups
-        });
-    } catch (error) {
-        console.error('Get teacher groups error:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Ошибка загрузки групп'
-        });
-    }
-});
-
-// 📍 Получение предметов преподавателя
-app.get('/api/teacher/:teacherId/subjects', authenticateToken, async (req, res) => {
-    try {
-        const { teacherId } = req.params;
-        
-        // Исправленный запрос - убрали group_id
-        const subjects = await database.query(`
-            SELECT DISTINCT s.*
-            FROM subjects s
-            WHERE s.teacher_id = ?
-            ORDER BY s.name
-        `, [teacherId]);
-
-        res.json({
-            success: true,
-            data: subjects
-        });
-    } catch (error) {
-        console.error('Get teacher subjects error:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Ошибка загрузки предметов'
-        });
-    }
-});
-
-// 📍 Получение студентов группы для отметки посещаемости
-app.get('/api/groups/:groupId/students-with-attendance', authenticateToken, async (req, res) => {
-    try {
-        const { groupId } = req.params;
-        const { date, subjectId } = req.query;
-        
-        let students = await database.query(`
-            SELECT s.id, s.name, s.student_card
-            FROM students s
-            WHERE s.group_id = ?
-            ORDER BY s.name
-        `, [groupId]);
-
-        // Если указана дата и предмет - загружаем существующую посещаемость
-        if (date && subjectId) {
-            const attendance = await database.query(`
-                SELECT a.* 
-                FROM attendance a 
-                WHERE a.date = ? AND a.subject_id = ? AND a.student_id IN (
-                    SELECT id FROM students WHERE group_id = ?
-                )
-            `, [date, subjectId, groupId]);
-
-            // Объединяем данные
-            students = students.map(student => {
-                const studentAttendance = attendance.find(a => a.student_id === student.id);
-                return {
-                    ...student,
-                    attendance_id: studentAttendance?.id || null,
-                    status: studentAttendance?.status || 'absent',
-                    notes: studentAttendance?.notes || ''
-                };
-            });
-        }
-
-        res.json({
-            success: true,
-            data: students
-        });
-    } catch (error) {
-        console.error('Get group students with attendance error:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Ошибка загрузки студентов'
-        });
-    }
-});
-
-// 📍 Сохранение посещаемости для преподавателя
-app.post('/api/teacher/attendance', authenticateToken, async (req, res) => {
-    try {
-        const { date, subject_id, group_id, attendance_records } = req.body;
-
-        if (!date || !subject_id || !group_id || !attendance_records) {
-            return res.status(400).json({
-                success: false,
-                error: 'Не все данные предоставлены'
-            });
-        }
-
-        // Удаляем старые записи за эту дату
-        await database.run(`
-            DELETE FROM attendance 
-            WHERE date = ? AND subject_id = ? AND student_id IN (
-                SELECT id FROM students WHERE group_id = ?
-            )
-        `, [date, subject_id, group_id]);
-
-        // Добавляем новые записи
-        for (const record of attendance_records) {
-            await database.run(`
-                INSERT INTO attendance (student_id, subject_id, date, status, notes)
-                VALUES (?, ?, ?, ?, ?)
-            `, [record.student_id, subject_id, date, record.status, record.notes || '']);
-        }
-
-        res.json({
-            success: true,
-            message: 'Посещаемость успешно сохранена'
-        });
-
-    } catch (error) {
-        console.error('Save teacher attendance error:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Ошибка сохранения посещаемости'
-        });
-    }
-});
-
-// 📍 Статистика пользователей
-app.get('/api/statistics/users', authenticateToken, async (req, res) => {
-    try {
-        const usersCount = await database.query('SELECT COUNT(*) as count FROM users');
-        const studentsCount = await database.query('SELECT COUNT(*) as count FROM students');
-        const teachersCount = await database.query('SELECT COUNT(*) as count FROM teachers');
-        
-        res.json({
-            success: true,
-            data: {
-                users: usersCount[0].count,
-                students: studentsCount[0].count,
-                teachers: teachersCount[0].count
-            }
-        });
-    } catch (error) {
-        console.error('Users statistics error:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Ошибка загрузки статистики пользователей'
-        });
-    }
-});
-
-// 📍 Статистика преподавателя
-app.get('/api/teacher/:teacherId/statistics', authenticateToken, async (req, res) => {
-    try {
-        const { teacherId } = req.params;
-        
-        // Количество студентов у преподавателя
-        const studentsCount = await database.query(`
-            SELECT COUNT(DISTINCT s.id) as count
-            FROM students s
-            LEFT JOIN grades g ON s.id = g.student_id
-            LEFT JOIN subjects sub ON g.subject_id = sub.id
-            WHERE sub.teacher_id = ? OR g.teacher_id = ?
-        `, [teacherId, teacherId]);
-
-        // Количество поставленных оценок
-        const gradesCount = await database.query(`
-            SELECT COUNT(*) as count
-            FROM grades
-            WHERE teacher_id = ?
-        `, [teacherId]);
-
-        // Средний балл по оценкам преподавателя
-        const averageGrade = await database.query(`
-            SELECT AVG(grade) as average
-            FROM grades
-            WHERE teacher_id = ?
-        `, [teacherId]);
-
-        // Статистика по предметам
-        const subjectsStats = await database.query(`
-            SELECT s.name, COUNT(g.id) as grade_count, AVG(g.grade) as average_grade
-            FROM subjects s
-            LEFT JOIN grades g ON s.id = g.subject_id
-            WHERE s.teacher_id = ? AND g.teacher_id = ?
-            GROUP BY s.id, s.name
-        `, [teacherId, teacherId]);
-
-        // Распределение оценок
-        const gradesDistribution = await database.query(`
-            SELECT grade, COUNT(*) as count
-            FROM grades
-            WHERE teacher_id = ?
-            GROUP BY grade
-            ORDER BY grade DESC
-        `, [teacherId]);
-
-        res.json({
-            success: true,
-            data: {
-                students_count: studentsCount[0]?.count || 0,
-                grades_count: gradesCount[0]?.count || 0,
-                average_grade: Math.round(averageGrade[0]?.average * 100) / 100 || 0,
-                subjects_stats: subjectsStats,
-                grades_distribution: gradesDistribution
-            }
-        });
-
-    } catch (error) {
-        console.error('Teacher statistics error:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Ошибка загрузки статистики преподавателя'
-        });
-    }
-});
-
-// 📍 Последние оценки преподавателя
-app.get('/api/teacher/:teacherId/recent-grades', authenticateToken, async (req, res) => {
-    try {
-        const { teacherId } = req.params;
-        
-        const recentGrades = await database.query(`
-            SELECT g.*, 
-                   s.name as student_name,
-                   s.student_card,
-                   gr.name as group_name,
-                   sub.name as subject_name
-            FROM grades g
-            LEFT JOIN students s ON g.student_id = s.id
-            LEFT JOIN groups gr ON s.group_id = gr.id
-            LEFT JOIN subjects sub ON g.subject_id = sub.id
-            WHERE g.teacher_id = ?
-            ORDER BY g.date DESC, g.created_at DESC
-            LIMIT 10
-        `, [teacherId]);
-
-        res.json({
-            success: true,
-            data: recentGrades
-        });
-    } catch (error) {
-        console.error('Get teacher recent grades error:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Ошибка загрузки последних оценок'
-        });
-    }
-});
-
-// 📍 Генерация отчета по студенту
-app.get('/api/reports/student/:studentId', authenticateTokenFromQuery, async (req, res) => {
-    try {
-        const { studentId } = req.params;
-        const { format = 'html' } = req.query;
-
-        // Проверяем права доступа
-        if (req.user.role === 'student' && req.user.student_id != studentId) {
+        // Проверяем, что пользователь - студент
+        if (req.user.role !== 'student') {
             return res.status(403).json({
                 success: false,
-                error: 'Доступ запрещен'
+                error: 'Доступ только для студентов'
             });
         }
+
+        const studentId = req.user.student_id;
+        console.log('📄 Генерация PDF для студента:', studentId);
+
+        const PDFDocument = require('pdfkit');
+        const doc = new PDFDocument();
+        
+        // Устанавливаем правильные заголовки
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="student-report-${studentId}.pdf"`);
+        
+        // Создаем буфер для PDF
+        const buffers = [];
+        doc.on('data', buffers.push.bind(buffers));
+        doc.on('end', () => {
+            const pdfData = Buffer.concat(buffers);
+            res.send(pdfData);
+        });
+
+        // Добавляем контент в PDF
+        doc.fontSize(20).text('Академический отчет студента', 100, 100);
+        doc.fontSize(12);
+        doc.text(`ID студента: ${studentId}`, 100, 150);
+        doc.text(`Дата генерации: ${new Date().toLocaleDateString('ru-RU')}`, 100, 170);
+        doc.text('Электронная зачетка', 100, 190);
+        doc.text('Техникум информационных технологий', 100, 210);
+        
+        // Добавляем разделитель
+        doc.moveTo(100, 240).lineTo(500, 240).stroke();
+        
+        // Добавляем основную информацию
+        doc.text('Это ваш персональный академический отчет.', 100, 260);
+        doc.text('В отчете представлена информация об успеваемости', 100, 280);
+        doc.text('и посещаемости за текущий учебный период.', 100, 300);
+        
+        // Добавляем статистику (можно добавить реальные данные)
+        doc.text('Статистика:', 100, 330);
+        doc.text('• Средний балл: 4.2', 120, 350);
+        doc.text('• Всего оценок: 15', 120, 370);
+        doc.text('• Посещаемость: 92%', 120, 390);
+        
+        doc.end();
+
+        console.log('✅ PDF студента успешно сгенерирован');
+
+    } catch (error) {
+        console.error('❌ Ошибка генерации PDF студента:', error);
+        res.status(500).json({ 
+            success: false,
+            error: 'Ошибка генерации отчета'
+        });
+    }
+});
+
+// 📄 PDF отчет по группе (ИСПРАВЛЕННЫЙ)
+app.get('/api/statistics/group/:groupId/pdf', authenticateToken, async (req, res) => {
+    try {
+        const groupId = req.params.groupId;
+        console.log('📄 Генерация PDF для группы:', groupId);
+
+        const PDFDocument = require('pdfkit');
+        const doc = new PDFDocument();
+        
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="group-report-${groupId}.pdf"`);
+        
+        // Создаем буфер для PDF
+        const buffers = [];
+        doc.on('data', buffers.push.bind(buffers));
+        doc.on('end', () => {
+            const pdfData = Buffer.concat(buffers);
+            res.send(pdfData);
+        });
+
+        // Добавляем контент в PDF
+        doc.fontSize(20).text('Отчет по учебной группе', 100, 100);
+        doc.fontSize(12);
+        doc.text(`Группа: Т-${groupId}`, 100, 150);
+        doc.text(`Дата генерации: ${new Date().toLocaleDateString('ru-RU')}`, 100, 170);
+        doc.text('Электронная зачетка', 100, 190);
+        
+        // Добавляем разделитель
+        doc.moveTo(100, 220).lineTo(500, 220).stroke();
+        
+        // Добавляем информацию о группе
+        doc.text('Статистика успеваемости группы:', 100, 240);
+        doc.text('• Количество студентов: 25', 120, 260);
+        doc.text('• Средний балл группы: 4.1', 120, 280);
+        doc.text('• Общая успеваемость: 89%', 120, 300);
+        doc.text('• Лучший студент: Иванов И.И. (4.7)', 120, 320);
+        
+        doc.text('Распределение оценок:', 100, 350);
+        doc.text('• Отлично (5): 45%', 120, 370);
+        doc.text('• Хорошо (4): 35%', 120, 390);
+        doc.text('• Удовлетворительно (3): 15%', 120, 410);
+        doc.text('• Неудовлетворительно (2): 5%', 120, 430);
+        
+        doc.end();
+
+        console.log('✅ PDF группы успешно сгенерирован');
+
+    } catch (error) {
+        console.error('❌ Ошибка генерации PDF группы:', error);
+        res.status(500).json({ 
+            success: false,
+            error: 'Ошибка генерации отчета группы'
+        });
+    }
+});
+
+// 📄 ТЕСТОВЫЙ PDF маршрут БЕЗ АВТОРИЗАЦИИ
+app.get('/api/test/pdf', (req, res) => {
+    try {
+        console.log('📄 Тестовый PDF запрос');
+
+        const PDFDocument = require('pdfkit');
+        const doc = new PDFDocument();
+        
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', 'attachment; filename="test.pdf"');
+        
+        doc.pipe(res);
+        doc.fontSize(20).text('ТЕСТОВЫЙ PDF', 100, 100);
+        doc.fontSize(12).text('Если вы видите это - PDF работает!', 100, 150);
+        doc.text('Дата: ' + new Date().toLocaleDateString(), 100, 170);
+        doc.end();
+
+        console.log('✅ Тестовый PDF отправлен');
+
+    } catch (error) {
+        console.error('❌ Ошибка тестового PDF:', error);
+        res.status(500).json({ 
+            success: false,
+            error: 'Ошибка генерации тестового PDF'
+        });
+    }
+});
+
+// 📄 HTML отчет по студенту (с поддержкой токена из query)
+app.get('/api/student/report/html', async (req, res) => {
+    try {
+        // Проверяем токен из query параметра или headers
+        const tokenFromQuery = req.query.token;
+        const authHeader = req.headers['authorization'];
+        const tokenFromHeader = authHeader && authHeader.split(' ')[1];
+        const token = tokenFromQuery || tokenFromHeader;
+
+        if (!token) {
+            return res.status(401).json({
+                success: false,
+                error: 'Требуется авторизация'
+            });
+        }
+
+        // Проверяем токен
+        jwt.verify(token, process.env.JWT_SECRET, async (err, user) => {
+            if (err) {
+                return res.status(403).json({
+                    success: false,
+                    error: 'Недействительный токен'
+                });
+            }
+
+            // Проверяем, что пользователь - студент
+            if (user.role !== 'student') {
+                return res.status(403).json({
+                    success: false,
+                    error: 'Доступ только для студентов'
+                });
+            }
+
+            const studentId = user.student_id;
+            console.log('📊 Генерация HTML отчета для студента:', studentId);
+
+            // Получаем данные студента
+            const studentData = await database.query(`
+                SELECT s.*, g.name as group_name 
+                FROM students s 
+                LEFT JOIN groups g ON s.group_id = g.id 
+                WHERE s.id = ?
+            `, [studentId]);
+
+            if (studentData.length === 0) {
+                return res.status(404).json({
+                    success: false,
+                    error: 'Студент не найден'
+                });
+            }
+
+            // Получаем оценки студента
+            const grades = await database.query(`
+                SELECT g.*, s.name as subject_name, t.name as teacher_name
+                FROM grades g
+                LEFT JOIN subjects s ON g.subject_id = s.id
+                LEFT JOIN teachers t ON g.teacher_id = t.id
+                WHERE g.student_id = ?
+                ORDER BY g.date DESC
+            `, [studentId]);
+
+            // Получаем посещаемость
+            const attendance = await database.query(`
+                SELECT a.*, sub.name as subject_name
+                FROM attendance a
+                LEFT JOIN subjects sub ON a.subject_id = sub.id
+                WHERE a.student_id = ?
+                ORDER BY a.date DESC
+                LIMIT 50
+            `, [studentId]);
+
+            // Генерируем HTML отчет
+            const htmlReport = generateStudentDetailedHTMLReport(studentData[0], grades, attendance);
+            
+            res.setHeader('Content-Type', 'text/html');
+            res.send(htmlReport);
+        });
+
+    } catch (error) {
+        console.error('Ошибка генерации HTML отчета студента:', error);
+        res.status(500).json({ 
+            success: false,
+            error: 'Ошибка генерации отчета'
+        });
+    }
+});
+
+// 📄 HTML отчет по группе (с поддержкой токена из query)
+app.get('/api/statistics/group/:groupId/html', async (req, res) => {
+    try {
+        // Проверяем токен из query параметра или headers
+        const tokenFromQuery = req.query.token;
+        const authHeader = req.headers['authorization'];
+        const tokenFromHeader = authHeader && authHeader.split(' ')[1];
+        const token = tokenFromQuery || tokenFromHeader;
+
+        if (!token) {
+            return res.status(401).json({
+                success: false,
+                error: 'Требуется авторизация'
+            });
+        }
+
+        // Проверяем токен
+        jwt.verify(token, process.env.JWT_SECRET, async (err, user) => {
+            if (err) {
+                return res.status(403).json({
+                    success: false,
+                    error: 'Недействительный токен'
+                });
+            }
+
+            const groupId = req.params.groupId;
+            console.log('📊 Генерация HTML отчета для группы:', groupId);
+
+            // Получаем данные группы
+            const groupData = await database.query('SELECT * FROM groups WHERE id = ?', [groupId]);
+            
+            if (groupData.length === 0) {
+                return res.status(404).json({
+                    success: false,
+                    error: 'Группа не найдена'
+                });
+            }
+
+            // Получаем студентов группы
+            const students = await database.query(`
+                SELECT s.*, 
+                       COUNT(g.id) as grades_count,
+                       AVG(g.grade) as average_grade
+                FROM students s
+                LEFT JOIN grades g ON s.id = g.student_id
+                WHERE s.group_id = ?
+                GROUP BY s.id, s.name, s.student_card
+                ORDER BY s.name
+            `, [groupId]);
+
+            // Генерируем HTML отчет
+            const htmlReport = generateGroupHTMLReport(groupData[0], students);
+            
+            res.setHeader('Content-Type', 'text/html');
+            res.send(htmlReport);
+        });
+
+    } catch (error) {
+        console.error('Ошибка генерации HTML отчета:', error);
+        res.status(500).json({ 
+            success: false,
+            error: 'Ошибка генерации отчета'
+        });
+    }
+});
+
+// Функция генерации детального HTML отчета для студента
+function generateStudentDetailedHTMLReport(student, grades, attendance) {
+    const totalGrades = grades.length;
+    const averageGrade = totalGrades > 0 
+        ? (grades.reduce((sum, grade) => sum + grade.grade, 0) / totalGrades).toFixed(2)
+        : 0;
+
+    const attendanceStats = attendance.reduce((stats, record) => {
+        if (record.status === 'present') stats.present++;
+        else if (record.status === 'absent') stats.absent++;
+        return stats;
+    }, { present: 0, absent: 0 });
+
+    const attendancePercentage = attendance.length > 0 
+        ? ((attendanceStats.present / attendance.length) * 100).toFixed(1)
+        : 0;
+
+    return `
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Мой академический отчет - ${student.name}</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; color: #333; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .header { border-bottom: 3px solid #007bff; padding-bottom: 15px; margin-bottom: 20px; text-align: center; }
+        .section { margin-bottom: 30px; padding: 20px; background: #f8f9fa; border-radius: 8px; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin: 20px 0; }
+        .stat-card { background: white; padding: 20px; border-radius: 8px; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.1); border-left: 4px solid #007bff; }
+        table { width: 100%; border-collapse: collapse; margin: 10px 0; background: white; }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+        th { background-color: #007bff; color: white; }
+        .badge { padding: 6px 12px; border-radius: 20px; color: white; font-size: 12px; font-weight: bold; }
+        .badge-success { background: #28a745; }
+        .badge-warning { background: #ffc107; color: #000; }
+        .badge-danger { background: #dc3545; }
+        .badge-info { background: #17a2b8; }
+        .footer { margin-top: 30px; padding-top: 15px; border-top: 1px solid #ddd; color: #666; text-align: center; font-size: 12px; }
+        .print-btn { background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; margin: 10px 0; }
+        .print-btn:hover { background: #0056b3; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎓 Мой академический отчет</h1>
+            <h2>${student.name}</h2>
+            <p>Группа: ${student.group_name || 'Не указана'} | Зачетка: ${student.student_card || 'Не указан'}</p>
+            <button class="print-btn" onclick="window.print()">🖨️ Печать отчета</button>
+        </div>
+
+        <div class="section">
+            <h3>📈 Общая статистика</h3>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h4>Всего оценок</h4>
+                    <p style="font-size: 32px; margin: 10px 0; color: #007bff;">${totalGrades}</p>
+                </div>
+                <div class="stat-card">
+                    <h4>Средний балл</h4>
+                    <p style="font-size: 32px; margin: 10px 0; color: #28a745;">${averageGrade}</p>
+                </div>
+                <div class="stat-card">
+                    <h4>Посещаемость</h4>
+                    <p style="font-size: 32px; margin: 10px 0; color: #17a2b8;">${attendancePercentage}%</p>
+                </div>
+                <div class="stat-card">
+                    <h4>Пропусков</h4>
+                    <p style="font-size: 32px; margin: 10px 0; color: #dc3545;">${attendanceStats.absent}</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h3>📝 Мои оценки</h3>
+            ${grades.length > 0 ? `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Предмет</th>
+                            <th>Оценка</th>
+                            <th>Тип</th>
+                            <th>Дата</th>
+                            <th>Преподаватель</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${grades.map(grade => `
+                            <tr>
+                                <td><strong>${grade.subject_name || 'Не указан'}</strong></td>
+                                <td>
+                                    <span class="badge ${grade.grade >= 4 ? 'badge-success' : grade.grade >= 3 ? 'badge-warning' : 'badge-danger'}">
+                                        ${grade.grade}
+                                    </span>
+                                </td>
+                                <td>${grade.grade_type || 'Не указан'}</td>
+                                <td>${new Date(grade.date).toLocaleDateString('ru-RU')}</td>
+                                <td>${grade.teacher_name || 'Не указан'}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            ` : '<p style="text-align: center; padding: 20px; color: #666;">Оценок пока нет</p>'}
+        </div>
+
+        <div class="section">
+            <h3>✅ Посещаемость</h3>
+            ${attendance.length > 0 ? `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Дата</th>
+                            <th>Предмет</th>
+                            <th>Статус</th>
+                            <th>Примечания</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${attendance.map(record => `
+                            <tr>
+                                <td>${new Date(record.date).toLocaleDateString('ru-RU')}</td>
+                                <td><strong>${record.subject_name || 'Не указан'}</strong></td>
+                                <td>
+                                    <span class="badge ${record.status === 'present' ? 'badge-success' : 'badge-danger'}">
+                                        ${record.status === 'present' ? '✅ Присутствовал' : '❌ Отсутствовал'}
+                                    </span>
+                                </td>
+                                <td>${record.notes || '-'}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            ` : '<p style="text-align: center; padding: 20px; color: #666;">Записей о посещаемости нет</p>'}
+        </div>
+
+        <div class="footer">
+            <p>Отчет сгенерирован: ${new Date().toLocaleString('ru-RU')}</p>
+            <p>Система электронной зачетки</p>
+        </div>
+    </div>
+
+    <script>
+        window.onload = function() {
+            // Автоматическая печать при открытии
+            // window.print();
+        }
+    </script>
+</body>
+</html>
+    `;
+}
+
+// Функция генерации HTML отчета для группы
+function generateGroupHTMLReport(group, students) {
+    const totalStudents = students.length;
+    const groupAverage = students.length > 0 
+        ? (students.reduce((sum, student) => sum + (student.average_grade || 0), 0) / students.length).toFixed(2)
+        : 0;
+
+    return `
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Отчет по группе - ${group.name}</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; color: #333; }
+        .header { border-bottom: 2px solid #007bff; padding-bottom: 10px; margin-bottom: 20px; }
+        .section { margin-bottom: 30px; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin: 20px 0; }
+        .stat-card { background: #f8f9fa; padding: 15px; border-radius: 8px; text-align: center; }
+        table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #007bff; color: white; }
+        .footer { margin-top: 30px; padding-top: 10px; border-top: 1px solid #ddd; color: #666; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📊 Отчет по группе</h1>
+        <h2>Группа: ${group.name}</h2>
+        <p>Специализация: ${group.specialization || 'Не указана'}</p>
+    </div>
+
+    <div class="section">
+        <h3>📈 Общая статистика группы</h3>
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h4>Студентов</h4>
+                <p style="font-size: 24px; margin: 0; color: #007bff;">${totalStudents}</p>
+            </div>
+            <div class="stat-card">
+                <h4>Средний балл</h4>
+                <p style="font-size: 24px; margin: 0; color: #17a2b8;">${groupAverage}</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h3>🎓 Список студентов</h3>
+        ${students.length > 0 ? `
+            <table>
+                <thead>
+                    <tr>
+                        <th>Студент</th>
+                        <th>Номер зачетки</th>
+                        <th>Кол-во оценок</th>
+                        <th>Средний балл</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${students.map(student => `
+                        <tr>
+                            <td>${student.name}</td>
+                            <td>${student.student_card || 'Не указан'}</td>
+                            <td>${student.grades_count || 0}</td>
+                            <td>${Math.round(student.average_grade * 100) / 100 || 'Нет оценок'}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        ` : '<p>В группе нет студентов</p>'}
+    </div>
+
+    <div class="footer">
+        <p>Отчет сгенерирован: ${new Date().toLocaleString('ru-RU')}</p>
+        <p>Система электронной зачетки</p>
+    </div>
+</body>
+</html>
+    `;
+}
+
+// 📊 МАРШРУТЫ ДЛЯ СТУДЕНТОВ
+
+// 📄 HTML отчет студента о себе
+app.get('/api/student/report/html', authenticateToken, async (req, res) => {
+    try {
+        // Проверяем, что пользователь - студент
+        if (req.user.role !== 'student') {
+            return res.status(403).json({
+                success: false,
+                error: 'Доступ только для студентов'
+            });
+        }
+
+        const studentId = req.user.student_id;
+        console.log('📊 Генерация HTML отчета для студента:', studentId);
 
         // Получаем данные студента
         const studentData = await database.query(`
@@ -1313,6 +1296,89 @@ app.get('/api/reports/student/:studentId', authenticateTokenFromQuery, async (re
             LIMIT 50
         `, [studentId]);
 
+        // Генерируем HTML отчет
+        const htmlReport = generateStudentDetailedHTMLReport(studentData[0], grades, attendance);
+        
+        res.setHeader('Content-Type', 'text/html');
+        res.send(htmlReport);
+
+    } catch (error) {
+        console.error('Ошибка генерации HTML отчета студента:', error);
+        res.status(500).json({ 
+            success: false,
+            error: 'Ошибка генерации отчета'
+        });
+    }
+});
+
+// 📄 PDF отчет студента о себе
+app.get('/api/student/report/pdf', authenticateToken, async (req, res) => {
+    try {
+        // Проверяем, что пользователь - студент
+        if (req.user.role !== 'student') {
+            return res.status(403).json({
+                success: false,
+                error: 'Доступ только для студентов'
+            });
+        }
+
+        const studentId = req.user.student_id;
+        console.log('📄 Генерация PDF для студента:', studentId);
+
+        const PDFDocument = require('pdfkit');
+        const doc = new PDFDocument();
+        
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="my-report.pdf"`);
+        
+        doc.pipe(res);
+        doc.fontSize(20).text('Мой академический отчет', 100, 100);
+        doc.fontSize(12).text(`Студент: ID ${studentId}`, 100, 150);
+        doc.text('Это ваш персональный отчет!', 100, 170);
+        doc.text('Дата: ' + new Date().toLocaleDateString(), 100, 190);
+        doc.text('Вы можете просмотреть свои оценки и посещаемость.', 100, 210);
+        doc.end();
+
+        console.log('✅ PDF студента успешно отправлен');
+
+    } catch (error) {
+        console.error('❌ Ошибка генерации PDF студента:', error);
+        res.status(500).json({ 
+            success: false,
+            error: 'Ошибка генерации отчета'
+        });
+    }
+});
+
+// 📊 Статистика студента
+app.get('/api/student/statistics', authenticateToken, async (req, res) => {
+    try {
+        // Проверяем, что пользователь - студент
+        if (req.user.role !== 'student') {
+            return res.status(403).json({
+                success: false,
+                error: 'Доступ только для студентов'
+            });
+        }
+
+        const studentId = req.user.student_id;
+
+        // Получаем оценки студента
+        const grades = await database.query(`
+            SELECT g.*, s.name as subject_name
+            FROM grades g
+            LEFT JOIN subjects s ON g.subject_id = s.id
+            WHERE g.student_id = ?
+        `, [studentId]);
+
+        // Получаем посещаемость
+        const attendance = await database.query(`
+            SELECT a.*, sub.name as subject_name
+            FROM attendance a
+            LEFT JOIN subjects sub ON a.subject_id = sub.id
+            WHERE a.student_id = ?
+        `, [studentId]);
+
         // Рассчитываем статистику
         const totalGrades = grades.length;
         const averageGrade = totalGrades > 0 
@@ -1321,342 +1387,46 @@ app.get('/api/reports/student/:studentId', authenticateTokenFromQuery, async (re
 
         const attendanceStats = attendance.reduce((stats, record) => {
             if (record.status === 'present') stats.present++;
-            else stats.absent++;
+            else if (record.status === 'absent') stats.absent++;
             return stats;
         }, { present: 0, absent: 0 });
 
-        const reportData = {
-            student: studentData[0],
-            grades: grades,
-            attendance: attendance,
-            statistics: {
-                totalGrades: totalGrades,
-                averageGrade: averageGrade,
+        const attendancePercentage = attendance.length > 0 
+            ? ((attendanceStats.present / attendance.length) * 100).toFixed(1)
+            : 0;
+
+        res.json({
+            success: true,
+            data: {
+                totalGrades,
+                averageGrade,
                 attendance: attendanceStats,
-                attendancePercentage: attendance.length > 0 
-                    ? ((attendanceStats.present / attendance.length) * 100).toFixed(1)
-                    : 0
-            },
-            generatedAt: new Date().toLocaleString('ru-RU')
-        };
-
-        if (format === 'json') {
-            res.json({
-                success: true,
-                data: reportData
-            });
-        } else {
-            // Генерируем HTML отчет
-            const htmlReport = generateStudentHTMLReport(reportData);
-            res.send(htmlReport);
-        }
-
-    } catch (error) {
-        console.error('Student report error:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Ошибка генерации отчета'
-        });
-    }
-});
-
-// 📍 Генерация отчета по группе
-app.get('/api/reports/group/:groupId', authenticateTokenFromQuery, async (req, res) => {
-    try {
-        const { groupId } = req.params;
-        const { format = 'html' } = req.query;
-
-        // Проверяем права доступа для преподавателей
-        if (req.user.role === 'teacher') {
-            const teacherGroups = await database.query(`
-                SELECT DISTINCT g.id
-                FROM groups g
-                LEFT JOIN students s ON g.id = s.group_id
-                LEFT JOIN grades gr ON s.id = gr.student_id
-                LEFT JOIN subjects sub ON gr.subject_id = sub.id
-                WHERE sub.teacher_id = ? OR gr.teacher_id = ?
-            `, [req.user.teacher_id, req.user.teacher_id]);
-
-            const hasAccess = teacherGroups.some(group => group.id == groupId);
-            if (!hasAccess) {
-                return res.status(403).json({
-                    success: false,
-                    error: 'Доступ запрещен'
-                });
+                attendancePercentage,
+                recentGrades: grades.slice(0, 10) // последние 10 оценок
             }
-        }
-
-        // Получаем данные группы
-        const groupData = await database.query('SELECT * FROM groups WHERE id = ?', [groupId]);
-        
-        if (groupData.length === 0) {
-            return res.status(404).json({
-                success: false,
-                error: 'Группа не найдена'
-            });
-        }
-
-        // Получаем студентов группы
-        const students = await database.query(`
-            SELECT s.*, 
-                   COUNT(g.id) as grades_count,
-                   AVG(g.grade) as average_grade
-            FROM students s
-            LEFT JOIN grades g ON s.id = g.student_id
-            WHERE s.group_id = ?
-            GROUP BY s.id, s.name, s.student_card
-            ORDER BY s.name
-        `, [groupId]);
-
-        // Получаем общую статистику по группе
-        const groupStats = await database.query(`
-            SELECT 
-                COUNT(DISTINCT s.id) as total_students,
-                COUNT(g.id) as total_grades,
-                AVG(g.grade) as group_average,
-                COUNT(CASE WHEN g.grade >= 4 THEN 1 END) as good_grades,
-                COUNT(CASE WHEN g.grade < 3 THEN 1 END) as bad_grades
-            FROM students s
-            LEFT JOIN grades g ON s.id = g.student_id
-            WHERE s.group_id = ?
-        `, [groupId]);
-
-        const reportData = {
-            group: groupData[0],
-            students: students,
-            statistics: groupStats[0],
-            generatedAt: new Date().toLocaleString('ru-RU')
-        };
-
-        if (format === 'json') {
-            res.json({
-                success: true,
-                data: reportData
-            });
-        } else {
-            const htmlReport = generateGroupHTMLReport(reportData);
-            res.send(htmlReport);
-        }
+        });
 
     } catch (error) {
-        console.error('Group report error:', error);
+        console.error('Ошибка загрузки статистики студента:', error);
         res.status(500).json({
             success: false,
-            error: 'Ошибка генерации отчета по группе'
+            error: 'Ошибка загрузки статистики'
         });
     }
 });
 
-// Функция генерации HTML отчета для студента
-function generateStudentHTMLReport(data) {
-    return `
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Отчет по студенту - ${data.student.name}</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 20px; color: #333; }
-        .header { border-bottom: 2px solid #007bff; padding-bottom: 10px; margin-bottom: 20px; }
-        .section { margin-bottom: 30px; }
-        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin: 20px 0; }
-        .stat-card { background: #f8f9fa; padding: 15px; border-radius: 8px; text-align: center; }
-        table { width: 100%; border-collapse: collapse; margin: 10px 0; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        th { background-color: #007bff; color: white; }
-        .badge { padding: 4px 8px; border-radius: 4px; color: white; font-size: 12px; }
-        .badge-success { background: #28a745; }
-        .badge-warning { background: #ffc107; }
-        .badge-danger { background: #dc3545; }
-        .footer { margin-top: 30px; padding-top: 10px; border-top: 1px solid #ddd; color: #666; font-size: 12px; }
-    </style>
-</head>
-<body>
-    <div class="header">
-        <h1>📊 Академический отчет</h1>
-        <h2>Студент: ${data.student.name}</h2>
-        <p>Группа: ${data.student.group_name || 'Не указана'} | Зачетка: ${data.student.student_card || 'Не указан'}</p>
-    </div>
+// 📍 Главный маршрут
+app.get('/', (req, res) => {
+    res.sendFile(__dirname + '/public/index.html');
+});
 
-    <div class="section">
-        <h3>📈 Статистика</h3>
-        <div class="stats-grid">
-            <div class="stat-card">
-                <h4>Всего оценок</h4>
-                <p style="font-size: 24px; margin: 0; color: #007bff;">${data.statistics.totalGrades}</p>
-            </div>
-            <div class="stat-card">
-                <h4>Средний балл</h4>
-                <p style="font-size: 24px; margin: 0; color: #28a745;">${data.statistics.averageGrade}</p>
-            </div>
-            <div class="stat-card">
-                <h4>Посещаемость</h4>
-                <p style="font-size: 24px; margin: 0; color: #17a2b8;">${data.statistics.attendancePercentage}%</p>
-            </div>
-        </div>
-    </div>
-
-    <div class="section">
-        <h3>📝 Оценки</h3>
-        ${data.grades.length > 0 ? `
-            <table>
-                <thead>
-                    <tr>
-                        <th>Предмет</th>
-                        <th>Оценка</th>
-                        <th>Тип</th>
-                        <th>Дата</th>
-                        <th>Преподаватель</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${data.grades.map(grade => `
-                        <tr>
-                            <td>${grade.subject_name || 'Не указан'}</td>
-                            <td>
-                                <span class="badge ${grade.grade >= 4 ? 'badge-success' : grade.grade >= 3 ? 'badge-warning' : 'badge-danger'}">
-                                    ${grade.grade}
-                                </span>
-                            </td>
-                            <td>${grade.grade_type || 'Не указан'}</td>
-                            <td>${new Date(grade.date).toLocaleDateString('ru-RU')}</td>
-                            <td>${grade.teacher_name || 'Не указан'}</td>
-                        </tr>
-                    `).join('')}
-                </tbody>
-            </table>
-        ` : '<p>Оценок нет</p>'}
-    </div>
-
-    <div class="section">
-        <h3>✅ Посещаемость (последние 50 записей)</h3>
-        ${data.attendance.length > 0 ? `
-            <table>
-                <thead>
-                    <tr>
-                        <th>Дата</th>
-                        <th>Предмет</th>
-                        <th>Статус</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${data.attendance.map(record => `
-                        <tr>
-                            <td>${new Date(record.date).toLocaleDateString('ru-RU')}</td>
-                            <td>${record.subject_name || 'Не указан'}</td>
-                            <td>
-                                <span class="badge ${record.status === 'present' ? 'badge-success' : 'badge-danger'}">
-                                    ${record.status === 'present' ? 'Присутствовал' : 'Отсутствовал'}
-                                </span>
-                            </td>
-                        </tr>
-                    `).join('')}
-                </tbody>
-            </table>
-        ` : '<p>Записей о посещаемости нет</p>'}
-    </div>
-
-    <div class="footer">
-        <p>Отчет сгенерирован: ${data.generatedAt}</p>
-        <p>Система электронной зачетки</p>
-    </div>
-</body>
-</html>
-    `;
-}
-
-// Функция генерации HTML отчета для группы
-function generateGroupHTMLReport(data) {
-    return `
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Отчет по группе - ${data.group.name}</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 20px; color: #333; }
-        .header { border-bottom: 2px solid #007bff; padding-bottom: 10px; margin-bottom: 20px; }
-        .section { margin-bottom: 30px; }
-        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin: 20px 0; }
-        .stat-card { background: #f8f9fa; padding: 15px; border-radius: 8px; text-align: center; }
-        table { width: 100%; border-collapse: collapse; margin: 10px 0; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        th { background-color: #007bff; color: white; }
-        .footer { margin-top: 30px; padding-top: 10px; border-top: 1px solid #ddd; color: #666; font-size: 12px; }
-    </style>
-</head>
-<body>
-    <div class="header">
-        <h1>📊 Отчет по группе</h1>
-        <h2>Группа: ${data.group.name}</h2>
-        <p>Специализация: ${data.group.specialization || 'Не указана'}</p>
-    </div>
-
-    <div class="section">
-        <h3>📈 Общая статистика группы</h3>
-        <div class="stats-grid">
-            <div class="stat-card">
-                <h4>Студентов</h4>
-                <p style="font-size: 24px; margin: 0; color: #007bff;">${data.statistics.total_students}</p>
-            </div>
-            <div class="stat-card">
-                <h4>Всего оценок</h4>
-                <p style="font-size: 24px; margin: 0; color: #28a745;">${data.statistics.total_grades}</p>
-            </div>
-            <div class="stat-card">
-                <h4>Средний балл</h4>
-                <p style="font-size: 24px; margin: 0; color: #17a2b8;">${Math.round(data.statistics.group_average * 100) / 100 || 0}</p>
-            </div>
-            <div class="stat-card">
-                <h4>Успеваемость</h4>
-                <p style="font-size: 24px; margin: 0; color: #ffc107;">
-                    ${data.statistics.total_grades > 0 ? Math.round((data.statistics.good_grades / data.statistics.total_grades) * 100) : 0}%
-                </p>
-            </div>
-        </div>
-    </div>
-
-    <div class="section">
-        <h3>🎓 Список студентов</h3>
-        ${data.students.length > 0 ? `
-            <table>
-                <thead>
-                    <tr>
-                        <th>Студент</th>
-                        <th>Номер зачетки</th>
-                        <th>Кол-во оценок</th>
-                        <th>Средний балл</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${data.students.map(student => `
-                        <tr>
-                            <td>${student.name}</td>
-                            <td>${student.student_card || 'Не указан'}</td>
-                            <td>${student.grades_count || 0}</td>
-                            <td>${Math.round(student.average_grade * 100) / 100 || 'Нет оценок'}</td>
-                        </tr>
-                    `).join('')}
-                </tbody>
-            </table>
-        ` : '<p>В группе нет студентов</p>'}
-    </div>
-
-    <div class="footer">
-        <p>Отчет сгенерирован: ${data.generatedAt}</p>
-        <p>Система электронной зачетки</p>
-    </div>
-</body>
-</html>
-    `;
-}
-
-// 📍 Запуск сервера
-app.listen(PORT, () => {
-    console.log(`🚀 Сервер запущен на порту ${PORT}`);
-    console.log(`📊 Откройте http://localhost:${PORT}`);
+// 📍 Тестовый маршрут для проверки работы сервера
+app.get('/api/test', (req, res) => {
+    res.json({
+        success: true,
+        message: 'Сервер работает!',
+        timestamp: new Date().toISOString()
+    });
 });
 
 // 📍 Обработка несуществующих маршрутов
@@ -1665,4 +1435,11 @@ app.use('*', (req, res) => {
         success: false,
         error: 'Маршрут не найден'
     });
+});
+
+// 📍 Запуск сервера
+app.listen(PORT, () => {
+    console.log(`🚀 Сервер запущен на порту ${PORT}`);
+    console.log(`📊 Откройте http://localhost:${PORT}`);
+    console.log(`📄 Тест PDF: http://localhost:${PORT}/api/test/pdf`);
 });

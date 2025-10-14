@@ -1,138 +1,130 @@
-// routes/statistics.js
+// routes/statistics.js - БЕЗ АВТОРИЗАЦИИ ДЛЯ ТЕСТА
 const express = require('express');
 const router = express.Router();
-const db = require('../utils/database');
-const { authenticateToken, requirePermission } = require('../middleware/auth');
+const PDFGenerator = require('../utils/pdf-generator');
 
-// 📊 Общая статистика системы
-router.get('/overview', authenticateToken, async (req, res) => {
+// 📄 PDF отчет по студенту - БЕЗ АВТОРИЗАЦИИ
+router.get('/student/:studentId/pdf', async (req, res) => {
     try {
-        const statistics = {};
-        
-        // Получаем количество студентов
-        db.get('SELECT COUNT(*) as count FROM students WHERE status = "active"', (err, studentRow) => {
-            if (err) throw err;
-            statistics.students = studentRow.count;
-            
-            // Получаем количество преподавателей
-            db.get('SELECT COUNT(*) as count FROM teachers WHERE status = "active"', (err, teacherRow) => {
-                if (err) throw err;
-                statistics.teachers = teacherRow.count;
-                
-                // Получаем количество предметов
-                db.get('SELECT COUNT(*) as count FROM subjects', (err, subjectRow) => {
-                    if (err) throw err;
-                    statistics.subjects = subjectRow.count;
-                    
-                    // Получаем количество оценок
-                    db.get('SELECT COUNT(*) as count FROM grades', (err, gradeRow) => {
-                        if (err) throw err;
-                        statistics.grades = gradeRow.count;
-                        
-                        // Получаем количество групп
-                        db.get('SELECT COUNT(*) as count FROM groups', (err, groupRow) => {
-                            if (err) throw err;
-                            statistics.groups = groupRow.count;
-                            
-                            // Средний балл по системе
-                            db.get('SELECT AVG(grade) as average FROM grades', (err, avgRow) => {
-                                statistics.averageGrade = avgRow.average ? Math.round(avgRow.average * 100) / 100 : 0;
-                                
-                                res.json({
-                                    success: true,
-                                    data: statistics
-                                });
-                            });
-                        });
-                    });
-                });
-            });
-        });
+        const studentId = req.params.studentId;
+        console.log('📄 Генерация PDF для студента:', studentId);
 
+        // Тестовые данные
+        const testStudent = {
+            name: "Иванов Иван Иванович",
+            group: "Т-101"
+        };
+
+        const testGrades = [
+            { subject: "Математика", grade: 5, date: new Date() },
+            { subject: "Физика", grade: 4, date: new Date() },
+            { subject: "Информатика", grade: 5, date: new Date() }
+        ];
+
+        const testStatistics = {
+            averageGrade: 4.7,
+            performance: 100,
+            totalGrades: 3,
+            bySubject: {
+                "Математика": { average: 5, count: 1 },
+                "Физика": { average: 4, count: 1 },
+                "Информатика": { average: 5, count: 1 }
+            }
+        };
+
+        // Генерируем PDF
+        const pdfGenerator = new PDFGenerator();
+        const pdfBuffer = await pdfGenerator.generateStudentReport(
+            testStudent,
+            testGrades,
+            testStatistics
+        );
+
+        // Отправляем PDF
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="report-${testStudent.name}.pdf"`);
+        res.send(pdfBuffer);
+
+        console.log('✅ PDF успешно сгенерирован');
+
+    } catch (error) {
+        console.error('❌ Ошибка генерации PDF:', error);
+        res.status(500).json({ 
+            success: false,
+            error: 'Ошибка генерации отчета: ' + error.message
+        });
+    }
+});
+
+// 📄 PDF отчет по группе - БЕЗ АВТОРИЗАЦИИ
+router.get('/group/:groupId/pdf', async (req, res) => {
+    try {
+        const groupId = req.params.groupId;
+        console.log('📄 Генерация PDF для группы:', groupId);
+
+        // Тестовые данные
+        const testGroup = {
+            name: "Т-101",
+            curator: "Петрова Мария Ивановна"
+        };
+
+        const testStudents = [
+            { name: "Иванов Иван", averageGrade: "4.50", performance: 90 },
+            { name: "Петрова Анна", averageGrade: "4.20", performance: 85 },
+            { name: "Сидоров Петр", averageGrade: "3.80", performance: 75 }
+        ];
+
+        const testStatistics = {
+            groupAverage: 4.17,
+            totalGrades: 45,
+            totalStudents: 3,
+            goodGrades: 35,
+            successRate: 88.9
+        };
+
+        // Генерируем PDF
+        const pdfGenerator = new PDFGenerator();
+        const pdfBuffer = await pdfGenerator.generateGroupReport(
+            testGroup,
+            testStudents,
+            testStatistics
+        );
+
+        // Отправляем PDF
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="group-report-${testGroup.name}.pdf"`);
+        res.send(pdfBuffer);
+
+        console.log('✅ PDF группы успешно сгенерирован');
+
+    } catch (error) {
+        console.error('❌ Ошибка генерации PDF группы:', error);
+        res.status(500).json({ 
+            success: false,
+            error: 'Ошибка генерации отчета группы: ' + error.message
+        });
+    }
+});
+
+// 📊 Общая статистика системы - БЕЗ АВТОРИЗАЦИИ
+router.get('/overview', async (req, res) => {
+    try {
+        res.json({
+            success: true,
+            data: {
+                students: 150,
+                teachers: 15,
+                subjects: 20,
+                grades: 1250,
+                groups: 8,
+                averageGrade: 4.2
+            }
+        });
     } catch (error) {
         console.error('Ошибка получения статистики:', error);
         res.status(500).json({
             success: false,
             error: 'Ошибка получения статистики'
-        });
-    }
-});
-
-// 📈 Статистика по группе
-router.get('/group/:groupId', authenticateToken, requirePermission('view_statistics'), async (req, res) => {
-    try {
-        const { groupId } = req.params;
-        
-        const sql = `
-            SELECT 
-                s.name as subject_name,
-                COUNT(DISTINCT st.id) as total_students,
-                COUNT(g.id) as total_grades,
-                ROUND(AVG(g.grade), 2) as average_grade,
-                COUNT(CASE WHEN g.grade = 5 THEN 1 END) as excellent_count,
-                COUNT(CASE WHEN g.grade = 4 THEN 1 END) as good_count,
-                COUNT(CASE WHEN g.grade = 3 THEN 1 END) as satisfactory_count,
-                COUNT(CASE WHEN g.grade = 2 THEN 1 END) as fail_count,
-                ROUND((COUNT(CASE WHEN g.grade >= 3 THEN 1 END) * 100.0 / COUNT(g.id)), 2) as success_rate
-            FROM subjects s
-            LEFT JOIN curriculum c ON s.id = c.subject_id AND c.group_id = ?
-            LEFT JOIN grades g ON s.id = g.subject_id
-            LEFT JOIN students st ON g.student_id = st.id AND st.group_id = ?
-            WHERE c.group_id = ? OR c.group_id IS NULL
-            GROUP BY s.id
-            ORDER BY s.name
-        `;
-        
-        db.all(sql, [groupId, groupId, groupId], (err, rows) => {
-            if (err) {
-                console.error('Ошибка получения статистики группы:', err);
-                return res.status(500).json({
-                    success: false,
-                    error: 'Ошибка получения статистики группы'
-                });
-            }
-
-            // Общая статистика по группе
-            const overallStats = rows.reduce((acc, row) => ({
-                totalSubjects: acc.totalSubjects + 1,
-                totalGrades: acc.totalGrades + row.total_grades,
-                weightedAverage: acc.weightedAverage + (row.average_grade * row.total_grades),
-                totalWeight: acc.totalWeight + row.total_grades,
-                excellentStudents: Math.max(acc.excellentStudents, row.excellent_count),
-                totalStudents: Math.max(acc.totalStudents, row.total_students)
-            }), { 
-                totalSubjects: 0, 
-                totalGrades: 0, 
-                weightedAverage: 0, 
-                totalWeight: 0,
-                excellentStudents: 0,
-                totalStudents: 0
-            });
-
-            const overallAverage = overallStats.totalWeight > 0 
-                ? Math.round((overallStats.weightedAverage / overallStats.totalWeight) * 100) / 100 
-                : 0;
-
-            res.json({
-                success: true,
-                data: {
-                    subjects: rows,
-                    overall: {
-                        totalSubjects: overallStats.totalSubjects,
-                        totalGrades: overallStats.totalGrades,
-                        averageGrade: overallAverage,
-                        totalStudents: overallStats.totalStudents,
-                        excellentCount: overallStats.excellentStudents
-                    }
-                }
-            });
-        });
-
-    } catch (error) {
-        console.error('Ошибка получения статистики группы:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Ошибка получения статистики группы'
         });
     }
 });

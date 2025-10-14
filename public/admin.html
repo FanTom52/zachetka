@@ -87,25 +87,26 @@
                     </div>
                 </div>
 
-                <!-- Статистика -->
-                <div id="statistics" class="section">
-                    <div class="card">
-                        <div class="card-header">
-                            <h2 class="mb-0"><i class="bi bi-graph-up"></i> Статистика системы</h2>
-                        </div>
-                        <div class="card-body">
-                            <div class="row mb-4">
-                                <div class="col-md-8">
-                                    <h5 class="text-muted">Обзор системы</h5>
-                                </div>
-                                <div class="col-md-4 text-end">
-                                    <button class="btn btn-outline-primary" onclick="refreshStatistics()">
-                                        <i class="bi bi-arrow-clockwise"></i> Обновить
-                                    </button>
-                                </div>
-                            </div>
-                            
-                            <div id="statisticsContent">
+               <!-- Статистика -->
+<div id="statistics" class="section">
+    <div class="card">
+        <div class="card-header">
+            <h2 class="mb-0"><i class="bi bi-graph-up"></i> Статистика системы</h2>
+        </div>
+        <div class="card-body">
+            <!-- Существующий код остается -->
+            <div class="row mb-4">
+                <div class="col-md-8">
+                    <h5 class="text-muted">Обзор системы</h5>
+                </div>
+                <div class="col-md-4 text-end">
+                    <button class="btn btn-outline-primary" onclick="refreshStatistics()">
+                        <i class="bi bi-arrow-clockwise"></i> Обновить
+                    </button>
+                </div>
+            </div>
+            
+            <div id="statisticsContent">
                                 <div class="stats-grid">
                                     <div class="stat-card">
                                         <h3>👥 Пользователи</h3>
@@ -128,6 +129,34 @@
                                         <small class="text-muted">В учебном плане</small>
                                     </div>
                                 </div>
+
+                                <div class="row mt-4">
+                    <div class="col-12">
+                        <div class="card border-primary">
+                            <div class="card-header bg-primary text-white">
+                                <h6 class="mb-0"><i class="bi bi-file-pdf"></i> Генерация отчетов PDF</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <h6>Отчеты по студентам</h6>
+                                        <p class="text-muted small">Создайте подробные PDF отчеты по успеваемости студентов</p>
+                                        <button class="btn btn-pdf w-100" onclick="showStudentReportsModal()">
+                                            <i class="bi bi-person"></i> Отчеты студентов
+                                        </button>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <h6>Отчеты по группам</h6>
+                                        <p class="text-muted small">Статистика успеваемости по учебным группам</p>
+                                        <button class="btn btn-pdf w-100" onclick="showGroupReportsModal()">
+                                            <i class="bi bi-people"></i> Отчеты групп
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
                                 
                                 <div class="row mt-4">
                                     <div class="col-md-6">
@@ -459,74 +488,83 @@
         }
 
         // Отображение пользователей
-        function displayUsers(users) {
-            const usersList = document.getElementById('usersList');
-            
-            if (users.length === 0) {
-                usersList.innerHTML = `
-                    <div class="alert alert-info">
-                        <h5>Пользователи не найдены</h5>
-                        <p>В системе пока нет зарегистрированных пользователей.</p>
-                    </div>
-                `;
-                return;
-            }
+        // Отображение пользователей
+function displayUsers(users) {
+    const usersList = document.getElementById('usersList');
+    
+    if (users.length === 0) {
+        usersList.innerHTML = `
+            <div class="alert alert-info">
+                <h5>Пользователи не найдены</h5>
+                <p>В системе пока нет зарегистрированных пользователей.</p>
+            </div>
+        `;
+        return;
+    }
 
-            let html = `
-                <div class="table-responsive">
-                    <table class="table table-striped table-hover">
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>Логин</th>
-                                <th>Роль</th>
-                                <th>Дата регистрации</th>
-                                <th>Действия</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-            `;
-
-            users.forEach(user => {
-                let roleBadge = '';
-                switch(user.role) {
-                    case 'admin': 
-                        roleBadge = '<span class="role-badge role-admin">Админ</span>'; 
-                        break;
-                    case 'teacher': 
-                        roleBadge = '<span class="role-badge role-teacher">Преподаватель</span>'; 
-                        break;
-                    case 'student': 
-                        roleBadge = '<span class="role-badge role-student">Студент</span>'; 
-                        break;
-                }
-                
-                html += `
+    let html = `
+        <div class="table-responsive">
+            <table class="table table-striped table-hover">
+                <thead>
                     <tr>
-                        <td>${user.id}</td>
-                        <td>
-                            <strong>${user.username}</strong>
-                            ${user.student_name ? `<br><small class="text-muted">${user.student_name}</small>` : ''}
-                        </td>
-                        <td>${roleBadge}</td>
-                        <td>${new Date(user.created_at).toLocaleDateString('ru-RU')}</td>
-                        <td>
-                            <div class="btn-group btn-group-sm">
-                                <button class="btn btn-outline-primary" onclick="editUser(${user.id})">
-                                    <i class="bi bi-pencil"></i>
-                                </button>
-                                <button class="btn btn-outline-danger" onclick="deleteUser(${user.id})" ${user.role === 'admin' ? 'disabled' : ''}>
-                                    <i class="bi bi-trash"></i>
-                                </button>
-                            </div>
-                        </td>
+                        <th>ID</th>
+                        <th>Логин</th>
+                        <th>Роль</th>
+                        <th>Дата регистрации</th>
+                        <th>Действия</th>
                     </tr>
-                `;
-            });
+                </thead>
+                <tbody>
+    `;
 
-            html += '</tbody></table></div>';
-            usersList.innerHTML = html;
+    users.forEach(user => {
+        let roleBadge = '';
+        switch(user.role) {
+            case 'admin': 
+                roleBadge = '<span class="role-badge role-admin">Админ</span>'; 
+                break;
+            case 'teacher': 
+                roleBadge = '<span class="role-badge role-teacher">Преподаватель</span>'; 
+                break;
+            case 'student': 
+                roleBadge = '<span class="role-badge role-student">Студент</span>'; 
+                break;
         }
+        
+        // Добавляем кнопки PDF только для студентов
+        const pdfButtons = user.role === 'student' ? `
+            <button class="btn btn-outline-success btn-sm" onclick="exportStudentToPDF(${user.id})" title="PDF отчет">
+                <i class="bi bi-file-pdf"></i> PDF
+            </button>
+        ` : '';
+        
+        html += `
+            <tr>
+                <td>${user.id}</td>
+                <td>
+                    <strong>${user.username}</strong>
+                    ${user.student_name ? `<br><small class="text-muted">${user.student_name}</small>` : ''}
+                </td>
+                <td>${roleBadge}</td>
+                <td>${new Date(user.created_at).toLocaleDateString('ru-RU')}</td>
+                <td>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-primary" onclick="editUser(${user.id})" title="Редактировать">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        ${pdfButtons}
+                        <button class="btn btn-outline-danger" onclick="deleteUser(${user.id})" ${user.role === 'admin' ? 'disabled' : ''} title="Удалить">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    });
+
+    html += '</tbody></table></div>';
+    usersList.innerHTML = html;
+}
 
         // Загрузка статистики
         async function loadStatistics() {
@@ -750,6 +788,209 @@
 
         // Запускаем проверку авторизации
         checkAuth();
+
+       // Показать модальное окно отчетов по студентам
+async function showStudentReportsModal() {
+    const modal = new bootstrap.Modal(document.getElementById('studentReportsModal'));
+    modal.show();
+    
+    try {
+        const response = await fetch('/api/students', {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+
+        const result = await response.json();
+        
+        if (result.success && Array.isArray(result.data)) {
+            let html = '';
+            result.data.forEach(student => {
+                html += `
+                    <tr>
+                        <td>
+                            <strong>${student.name}</strong>
+                            <br><small class="text-muted">${student.email || ''}</small>
+                        </td>
+                        <td>${student.group_name || 'Не указана'}</td>
+                        <td>
+                            <div class="btn-group btn-group-sm">
+                                <button class="btn btn-outline-primary" onclick="viewStudentReport(${student.id})" title="HTML отчет">
+                                    <i class="bi bi-eye"></i> HTML
+                                </button>
+                                <button class="btn btn-pdf" onclick="exportStudentToPDF(${student.id})" title="PDF отчет">
+                                    <i class="bi bi-file-pdf"></i> PDF
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+            document.getElementById('studentsReportsList').innerHTML = html;
+        } else {
+            document.getElementById('studentsReportsList').innerHTML = `
+                <tr>
+                    <td colspan="3" class="text-center text-muted">
+                        ${result.error || 'Нет данных о студентах'}
+                    </td>
+                </tr>
+            `;
+        }
+    } catch (error) {
+        console.error('Error loading students:', error);
+        document.getElementById('studentsReportsList').innerHTML = `
+            <tr>
+                <td colspan="3" class="text-center text-muted">
+                    Ошибка загрузки данных: ${error.message}
+                </td>
+            </tr>
+        `;
+    }
+}
+
+// Показать модальное окно отчетов по группам
+async function showGroupReportsModal() {
+    const modal = new bootstrap.Modal(document.getElementById('groupReportsModal'));
+    modal.show();
+    
+    try {
+        const response = await fetch('/api/groups', {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+
+        const result = await response.json();
+        
+        if (result.success) {
+            let html = '';
+            result.data.forEach(group => {
+                html += `
+                    <tr>
+                        <td>
+                            <strong>${group.name}</strong>
+                        </td>
+                        <td>${group.curator || 'Не указан'}</td>
+                        <td>${group.student_count || 0}</td>
+                        <td>
+                            <div class="btn-group btn-group-sm">
+                                <button class="btn btn-outline-primary" onclick="viewGroupReport(${group.id})" title="HTML отчет">
+                                    <i class="bi bi-eye"></i> HTML
+                                </button>
+                                <button class="btn btn-pdf" onclick="exportGroupToPDF(${group.id})" title="PDF отчет">
+                                    <i class="bi bi-file-pdf"></i> PDF
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+            document.getElementById('groupsReportsList').innerHTML = html;
+        } else {
+            document.getElementById('groupsReportsList').innerHTML = `
+                <tr>
+                    <td colspan="4" class="text-center text-muted">
+                        Ошибка загрузки групп
+                    </td>
+                </tr>
+            `;
+        }
+    } catch (error) {
+        console.error('Error loading groups:', error);
+        document.getElementById('groupsReportsList').innerHTML = `
+            <tr>
+                <td colspan="4" class="text-center text-muted">
+                    Ошибка загрузки данных
+                </td>
+            </tr>
+        `;
+    }
+}
+
+// Функции для просмотра HTML отчетов
+function viewStudentReport(studentId) {
+    const url = `/api/statistics/student/${studentId}/html`;
+    window.open(url, '_blank');
+}
+
+function viewGroupReport(groupId) {
+    const url = `/api/statistics/group/${groupId}/html`;
+    window.open(url, '_blank');
+}
+
     </script>
+    <script src="/js/pdf-export.js"></script>
+
+    <!-- Модальное окно отчетов по студентам -->
+<div class="modal fade" id="studentReportsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-file-pdf"></i> PDF отчеты по студентам</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Студент</th>
+                                <th>Группа</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody id="studentsReportsList">
+                            <tr>
+                                <td colspan="3" class="text-center">
+                                    <div class="spinner-border" role="status">
+                                        <span class="visually-hidden">Загрузка...</span>
+                                    </div>
+                                    <p class="mt-2">Загрузка списка студентов...</p>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно отчетов по группам -->
+<div class="modal fade" id="groupReportsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-file-pdf"></i> PDF отчеты по группам</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Группа</th>
+                                <th>Куратор</th>
+                                <th>Кол-во студентов</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody id="groupsReportsList">
+                            <tr>
+                                <td colspan="4" class="text-center">
+                                    <div class="spinner-border" role="status">
+                                        <span class="visually-hidden">Загрузка...</span>
+                                    </div>
+                                    <p class="mt-2">Загрузка списка групп...</p>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 </body>
 </html>
