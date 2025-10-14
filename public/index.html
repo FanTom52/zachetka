@@ -28,7 +28,7 @@
                 </div>
             </header>
 
-            <!-- Навигация -->
+            <!-- ЕДИНСТВЕННАЯ ПАНЕЛЬ НАВИГАЦИИ -->
             <nav class="mb-4">
                 <ul class="nav nav-tabs">
                     <li class="nav-item">
@@ -51,6 +51,20 @@
                             <i class="bi bi-clipboard-check"></i>Посещаемость
                         </a>
                     </li>
+                    <!-- ВКЛАДКА СТАТИСТИКИ ДЛЯ ПРЕПОДАВАТЕЛЕЙ -->
+                    <li class="nav-item" id="teacherStatsTab" style="display:none;">
+                        <a class="nav-link" href="#" onclick="showSection('teacherStats')">
+                            <i class="bi bi-graph-up"></i>Статистика
+                        </a>
+                    </li>
+
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" onclick="showSection('reports')">
+                            <i class="bi bi-file-text"></i>Отчеты
+                        </a>
+                    </li>
+
+                    <!-- ВКЛАДКА АДМИН ПАНЕЛИ -->
                     <li class="nav-item" id="adminTab" style="display:none;">
                         <a class="nav-link" href="#" onclick="showSection('admin')">
                             <i class="bi bi-shield-lock"></i>Админ панель
@@ -88,6 +102,12 @@
                                             </button>
                                             <button class="btn btn-outline-primary" onclick="showSection('attendance')">
                                                 <i class="bi bi-clipboard-check"></i>Посещаемость
+                                            </button>
+                                            <button class="btn btn-outline-primary" id="quickStatsBtn" style="display:none;" onclick="showSection('teacherStats')">
+                                                <i class="bi bi-graph-up"></i>Моя статистика
+                                            </button>
+                                            <button class="btn btn-outline-primary" id="quickAdminBtn" style="display:none;" onclick="showSection('admin')">
+                                                <i class="bi bi-shield-lock"></i>Админ панель
                                             </button>
                                         </div>
                                     </div>
@@ -148,6 +168,171 @@
                     </div>
                 </div>
 
+                <!-- Статистика преподавателя -->
+                <div id="teacherStats" class="section">
+                    <div class="card">
+                        <div class="card-header">
+                            <h2 class="mb-0"><i class="bi bi-graph-up"></i> Моя статистика</h2>
+                        </div>
+                        <div class="card-body">
+                            <div class="row mb-4">
+                                <div class="col-md-8">
+                                    <h5 class="text-muted">Обзор преподавательской деятельности</h5>
+                                </div>
+                                <div class="col-md-4 text-end">
+                                    <button class="btn btn-outline-primary" onclick="refreshTeacherStatistics()">
+                                        <i class="bi bi-arrow-clockwise"></i> Обновить
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div id="teacherStatisticsContent">
+                                <div class="stats-grid">
+                                    <div class="stat-card">
+                                        <h3>🎓 Студенты</h3>
+                                        <p id="teacherStudentsCount">0</p>
+                                        <small class="text-muted">Обучается студентов</small>
+                                    </div>
+                                    <div class="stat-card">
+                                        <h3>📝 Оценки</h3>
+                                        <p id="teacherGradesCount">0</p>
+                                        <small class="text-muted">Поставлено оценок</small>
+                                    </div>
+                                    <div class="stat-card">
+                                        <h3>📊 Средний балл</h3>
+                                        <p id="teacherAverageGrade">0</p>
+                                        <small class="text-muted">По всем предметам</small>
+                                    </div>
+                                    <div class="stat-card">
+                                        <h3>📚 Предметы</h3>
+                                        <p id="teacherSubjectsCount">0</p>
+                                        <small class="text-muted">Преподаваемые</small>
+                                    </div>
+                                </div>
+                                
+                                <div class="row mt-4">
+                                    <div class="col-md-6">
+                                        <div class="card">
+                                            <div class="card-header">
+                                                <h6 class="mb-0"><i class="bi bi-bar-chart"></i> Распределение оценок</h6>
+                                            </div>
+                                            <div class="card-body">
+                                                <div id="teacherGradesDistribution" class="text-center py-3">
+                                                    <div class="spinner-border spinner-border-sm" role="status">
+                                                        <span class="visually-hidden">Загрузка...</span>
+                                                    </div>
+                                                    <p class="mt-2 small">Загрузка распределения оценок...</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="card">
+                                            <div class="card-header">
+                                                <h6 class="mb-0"><i class="bi bi-journal-check"></i> Статистика по предметам</h6>
+                                            </div>
+                                            <div class="card-body">
+                                                <div id="teacherSubjectsStats" class="text-center py-3">
+                                                    <div class="spinner-border spinner-border-sm" role="status">
+                                                        <span class="visually-hidden">Загрузка...</span>
+                                                    </div>
+                                                    <p class="mt-2 small">Загрузка статистики...</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="card mt-4">
+                                    <div class="card-header">
+                                        <h6 class="mb-0"><i class="bi bi-clock-history"></i> Последние оценки</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div id="teacherRecentGrades" class="text-center py-3">
+                                            <div class="spinner-border spinner-border-sm" role="status">
+                                                <span class="visually-hidden">Загрузка...</span>
+                                            </div>
+                                            <p class="mt-2 small">Загрузка последних оценок...</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Отчеты -->
+<div id="reports" class="section">
+    <div class="card">
+        <div class="card-header">
+            <h2 class="mb-0"><i class="bi bi-file-text"></i> Отчеты</h2>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <!-- Для студентов -->
+                <div class="col-md-6 mb-4" id="studentReportSection" style="display: none;">
+                    <div class="card h-100 border-0 shadow-sm">
+                        <div class="card-body text-center">
+                            <div class="mb-3">
+                                <i class="bi bi-person display-4 text-primary"></i>
+                            </div>
+                            <h5>Отчет по студенту</h5>
+                            <p class="text-muted">Полный академический отчет с оценками и посещаемостью</p>
+                            <button class="btn btn-primary w-100" onclick="generateStudentReport()">
+                                <i class="bi bi-download"></i> Сгенерировать отчет
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Для преподавателей -->
+                <div class="col-md-6 mb-4" id="teacherReportSection" style="display: none;">
+                    <div class="card h-100 border-0 shadow-sm">
+                        <div class="card-body text-center">
+                            <div class="mb-3">
+                                <i class="bi bi-people display-4 text-success"></i>
+                            </div>
+                            <h5>Отчет по группе</h5>
+                            <p class="text-muted">Статистика успеваемости по вашим группам</p>
+                            <div class="mb-3">
+                                <select id="reportGroupSelect" class="form-select">
+                                    <option value="">Выберите группу</option>
+                                </select>
+                            </div>
+                            <button class="btn btn-success w-100" onclick="generateGroupReport()">
+                                <i class="bi bi-download"></i> Сгенерировать отчет
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Для администраторов -->
+                <div class="col-md-6 mb-4" id="adminReportSection" style="display: none;">
+                    <div class="card h-100 border-0 shadow-sm">
+                        <div class="card-body text-center">
+                            <div class="mb-3">
+                                <i class="bi bi-graph-up display-4 text-info"></i>
+                            </div>
+                            <h5>Системные отчеты</h5>
+                            <p class="text-muted">Полные отчеты по всей системе</p>
+                            <div class="d-grid gap-2">
+                                <button class="btn btn-info" onclick="generateSystemReport()">
+                                    <i class="bi bi-download"></i> Отчет по системе
+                                </button>
+                                <button class="btn btn-outline-info" onclick="generateAllGroupsReport()">
+                                    <i class="bi bi-download"></i> Отчет по всем группам
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="reportResult" class="mt-4"></div>
+        </div>
+    </div>
+</div>
+
                 <!-- Админ панель -->
                 <div id="admin" class="section">
                     <div class="card">
@@ -205,52 +390,39 @@
                 
                 if (result.success) {
                     currentUser = result.user;
+                    console.log('✅ Пользователь авторизован:', currentUser);
                     displayUserInfo();
                     
                     // Показываем админ вкладку если пользователь админ
                     if (currentUser.role === 'admin') {
                         document.getElementById('adminTab').style.display = 'block';
+                        document.getElementById('quickAdminBtn').style.display = 'block';
+                    }
+                    
+                    // Показываем вкладку статистики для преподавателей
+                    if (currentUser.role === 'teacher') {
+                        document.getElementById('teacherStatsTab').style.display = 'block';
+                        document.getElementById('quickStatsBtn').style.display = 'block';
                     }
                     
                     // Загружаем данные для текущей секции
                     loadSectionData('dashboard');
                 } else {
+                    console.log('❌ Ошибка авторизации:', result.error);
                     localStorage.removeItem('token');
+                    localStorage.removeItem('user');
                     window.location.href = 'login.html';
                 }
             } catch (error) {
-                console.error('Auth error:', error);
+                console.error('❌ Auth error:', error);
                 localStorage.removeItem('token');
+                localStorage.removeItem('user');
                 window.location.href = 'login.html';
             }
         }
 
         function displayUserInfo() {
             document.getElementById('userName').textContent = currentUser.username;
-            
-            let roleText = '';
-            let roleClass = '';
-            switch(currentUser.role) {
-                case 'admin': 
-                    roleText = 'Администратор'; 
-                    roleClass = 'role-admin';
-                    break;
-                case 'teacher': 
-                    roleText = 'Преподаватель'; 
-                    roleClass = 'role-teacher';
-                    break;
-                case 'student': 
-                    roleText = 'Студент'; 
-                    roleClass = 'role-student';
-                    break;
-            }
-            
-            document.getElementById('userDetails').innerHTML = `
-                <p class="mb-2"><strong>👤 Логин:</strong> ${currentUser.username}</p>
-                <p class="mb-2"><strong>🎯 Роль:</strong> <span class="${roleClass} role-badge">${roleText}</span></p>
-                ${currentUser.student_id ? `<p class="mb-2"><strong>🎓 ID студента:</strong> ${currentUser.student_id}</p>` : ''}
-                ${currentUser.teacher_id ? `<p class="mb-0"><strong>👨‍🏫 ID преподавателя:</strong> ${currentUser.teacher_id}</p>` : ''}
-            `;
         }
 
         function showSection(sectionName) {
@@ -288,204 +460,210 @@
                 case 'dashboard':
                     await loadDashboard();
                     break;
+                case 'teacherStats':
+                    await loadTeacherStatistics();
+                    break;
             }
         }
+
+        // Остальные функции (loadGrades, loadSchedule, loadAttendance, loadTeacherStatistics и т.д.)
+        // остаются без изменений, как в предыдущих шагах
 
         async function loadGrades() {
-            try {
-                let url = '';
-                let title = '';
-                
-                if (currentUser.role === 'student' && currentUser.student_id) {
-                    url = `/api/grades/student/${currentUser.student_id}`;
-                    title = 'Мои оценки';
-                } else if (currentUser.role === 'teacher' && currentUser.teacher_id) {
-                    url = `/api/grades/teacher/${currentUser.teacher_id}`;
-                    title = 'Оценки студентов';
-                } else {
-                    document.getElementById('gradesList').innerHTML = `
-                        <div class="alert alert-info">
-                            <h5>Информация об оценках</h5>
-                            <p>Функциональность оценок доступна для студентов и преподавателей.</p>
-                        </div>
-                    `;
-                    return;
-                }
+    try {
+        let url = '';
+        let title = '';
+        
+        if (currentUser.role === 'student' && currentUser.student_id) {
+            url = `/api/grades/student/${currentUser.student_id}`;
+            title = 'Мои оценки';
+        } else if (currentUser.role === 'teacher' && currentUser.teacher_id) {
+            url = `/api/grades/teacher/${currentUser.teacher_id}`;
+            title = 'Оценки студентов';
+        } else {
+            document.getElementById('gradesList').innerHTML = `
+                <div class="alert alert-info">
+                    <h5>Информация об оценках</h5>
+                    <p>Функциональность оценок доступна для студентов и преподавателей.</p>
+                </div>
+            `;
+            return;
+        }
 
-                const response = await fetch(url, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
-                });
+        const response = await fetch(url, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
 
-                const result = await response.json();
-                
-                if (result.success && result.data.length > 0) {
-                    let html = `
-                        <h5 class="mb-4">${title}</h5>
-                        <div class="table-responsive">
-                            <table class="table table-striped">
-                                <thead>
-                                    <tr>
-                    `;
-                    
-                    if (currentUser.role === 'student') {
-                        html += `
-                            <th>Предмет</th>
-                            <th>Оценка</th>
-                            <th>Тип</th>
-                            <th>Дата</th>
-                            <th>Преподаватель</th>
-                        `;
-                    } else {
-                        html += `
-                            <th>Студент</th>
-                            <th>Группа</th>
-                            <th>Предмет</th>
-                            <th>Оценка</th>
-                            <th>Тип</th>
-                            <th>Дата</th>
-                        `;
-                    }
-                    
-                    html += `</tr></thead><tbody>`;
-                    
-                    result.data.forEach(grade => {
-                        if (currentUser.role === 'student') {
-                            html += `
-                                <tr>
-                                    <td>${grade.subject_name || 'Не указан'}</td>
-                                    <td>
-                                        <span class="badge bg-${grade.grade >= 4 ? 'success' : grade.grade >= 3 ? 'warning' : 'danger'} fs-6">
-                                            ${grade.grade}
-                                        </span>
-                                    </td>
-                                    <td>${grade.grade_type || 'Не указан'}</td>
-                                    <td>${new Date(grade.date).toLocaleDateString()}</td>
-                                    <td>${grade.teacher_name || 'Не указан'}</td>
-                                </tr>
-                            `;
-                        } else {
-                            html += `
-                                <tr>
-                                    <td>${grade.student_name || 'Не указан'}</td>
-                                    <td>${grade.group_name || 'Не указан'}</td>
-                                    <td>${grade.subject_name || 'Не указан'}</td>
-                                    <td>
-                                        <span class="badge bg-${grade.grade >= 4 ? 'success' : grade.grade >= 3 ? 'warning' : 'danger'} fs-6">
-                                            ${grade.grade}
-                                        </span>
-                                    </td>
-                                    <td>${grade.grade_type || 'Не указан'}</td>
-                                    <td>${new Date(grade.date).toLocaleDateString()}</td>
-                                </tr>
-                            `;
-                        }
-                    });
-                    
-                    html += `</tbody></table></div>`;
-                    document.getElementById('gradesList').innerHTML = html;
-                } else {
-                    document.getElementById('gradesList').innerHTML = `
-                        <div class="alert alert-warning">
-                            <h5>Оценки не найдены</h5>
-                            <p>${currentUser.role === 'student' ? 'У вас пока нет оценок.' : 'Вы пока не поставили ни одной оценки.'}</p>
-                        </div>
-                    `;
-                }
-            } catch (error) {
-                console.error('Error loading grades:', error);
-                document.getElementById('gradesList').innerHTML = `
-                    <div class="alert alert-danger">
-                        <h5>Ошибка загрузки</h5>
-                        <p>Не удалось загрузить данные об оценках.</p>
-                    </div>
+        const result = await response.json();
+        
+        if (result.success && result.data.length > 0) {
+            let html = `
+                <h5 class="mb-4">${title}</h5>
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+            `;
+            
+            if (currentUser.role === 'student') {
+                html += `
+                    <th>Предмет</th>
+                    <th>Оценка</th>
+                    <th>Тип</th>
+                    <th>Дата</th>
+                    <th>Преподаватель</th>
+                `;
+            } else {
+                html += `
+                    <th>Студент</th>
+                    <th>Группа</th>
+                    <th>Предмет</th>
+                    <th>Оценка</th>
+                    <th>Тип</th>
+                    <th>Дата</th>
                 `;
             }
+            
+            html += `</tr></thead><tbody>`;
+            
+            result.data.forEach(grade => {
+                if (currentUser.role === 'student') {
+                    html += `
+                        <tr>
+                            <td>${grade.subject_name || 'Не указан'}</td>
+                            <td>
+                                <span class="badge bg-${grade.grade >= 4 ? 'success' : grade.grade >= 3 ? 'warning' : 'danger'} fs-6">
+                                    ${grade.grade}
+                                </span>
+                            </td>
+                            <td>${grade.grade_type || 'Не указан'}</td>
+                            <td>${new Date(grade.date).toLocaleDateString()}</td>
+                            <td>${grade.teacher_name || 'Не указан'}</td>
+                        </tr>
+                    `;
+                } else {
+                    html += `
+                        <tr>
+                            <td>${grade.student_name || 'Не указан'}</td>
+                            <td>${grade.group_name || 'Не указан'}</td>
+                            <td>${grade.subject_name || 'Не указан'}</td>
+                            <td>
+                                <span class="badge bg-${grade.grade >= 4 ? 'success' : grade.grade >= 3 ? 'warning' : 'danger'} fs-6">
+                                    ${grade.grade}
+                                </span>
+                            </td>
+                            <td>${grade.grade_type || 'Не указан'}</td>
+                            <td>${new Date(grade.date).toLocaleDateString()}</td>
+                        </tr>
+                    `;
+                }
+            });
+            
+            html += `</tbody></table></div>`;
+            document.getElementById('gradesList').innerHTML = html;
+        } else {
+            document.getElementById('gradesList').innerHTML = `
+                <div class="alert alert-warning">
+                    <h5>Оценки не найдены</h5>
+                    <p>${currentUser.role === 'student' ? 'У вас пока нет оценок.' : 'Вы пока не поставили ни одной оценки.'}</p>
+                </div>
+            `;
         }
+    } catch (error) {
+        console.error('Error loading grades:', error);
+        document.getElementById('gradesList').innerHTML = `
+            <div class="alert alert-danger">
+                <h5>Ошибка загрузки</h5>
+                <p>Не удалось загрузить данные об оценках.</p>
+            </div>
+        `;
+    }
+}
 
         async function loadSchedule() {
-            try {
-                let url = '';
-                if (currentUser.role === 'student' && currentUser.student_id) {
-                    url = `/api/schedule/student/${currentUser.student_id}`;
-                } else if (currentUser.role === 'teacher' && currentUser.teacher_id) {
-                    url = `/api/schedule/teacher/${currentUser.teacher_id}`;
-                } else {
-                    document.getElementById('scheduleList').innerHTML = `
-                        <div class="alert alert-info">
-                            <h5>Расписание</h5>
-                            <p>Функциональность расписания доступна для студентов и преподавателей.</p>
-                        </div>
-                    `;
-                    return;
-                }
-
-                const response = await fetch(url, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
-                });
-
-                const result = await response.json();
-                
-                if (result.success && result.data.schedule && result.data.schedule.length > 0) {
-                    const schedule = result.data.schedule;
-                    let html = `
-                        <h5 class="mb-4">Мое расписание</h5>
-                        <div class="table-responsive">
-                            <table class="table table-striped">
-                                <thead>
-                                    <tr>
-                                        <th>День</th>
-                                        <th>Время</th>
-                                        <th>Предмет</th>
-                                        <th>Преподаватель</th>
-                                        <th>Аудитория</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                    `;
-                    
-                    const days = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота'];
-                    
-                    schedule.forEach(item => {
-                        html += `
-                            <tr>
-                                <td>${days[item.day_of_week - 1] || item.day_of_week}</td>
-                                <td>${item.start_time} - ${item.end_time}</td>
-                                <td>${item.subject_name || 'Не указан'}</td>
-                                <td>${item.teacher_name || 'Не указан'}</td>
-                                <td>${item.classroom || 'Не указана'}</td>
-                            </tr>
-                        `;
-                    });
-                    
-                    html += `</tbody></table></div>`;
-                    document.getElementById('scheduleList').innerHTML = html;
-                } else {
-                    document.getElementById('scheduleList').innerHTML = `
-                        <div class="alert alert-warning">
-                            <h5>Расписание не найдено</h5>
-                            <p>Расписание для вас пока не составлено.</p>
-                        </div>
-                    `;
-                }
-            } catch (error) {
-                console.error('Error loading schedule:', error);
-                document.getElementById('scheduleList').innerHTML = `
-                    <div class="alert alert-danger">
-                        <h5>Ошибка загрузки</h5>
-                        <p>Не удалось загрузить расписание.</p>
-                    </div>
-                `;
-            }
+    try {
+        let url = '';
+        if (currentUser.role === 'student' && currentUser.student_id) {
+            url = `/api/schedule/student/${currentUser.student_id}`;
+        } else if (currentUser.role === 'teacher' && currentUser.teacher_id) {
+            url = `/api/schedule/teacher/${currentUser.teacher_id}`;
+        } else {
+            document.getElementById('scheduleList').innerHTML = `
+                <div class="alert alert-info">
+                    <h5>Расписание</h5>
+                    <p>Функциональность расписания доступна для студентов и преподавателей.</p>
+                </div>
+            `;
+            return;
         }
+
+        const response = await fetch(url, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+
+        const result = await response.json();
+        
+        if (result.success && result.data.schedule && result.data.schedule.length > 0) {
+            const schedule = result.data.schedule;
+            let html = `
+                <h5 class="mb-4">Мое расписание</h5>
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>День</th>
+                                <th>Время</th>
+                                <th>Предмет</th>
+                                <th>Преподаватель</th>
+                                <th>Аудитория</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+            
+            const days = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота'];
+            
+            schedule.forEach(item => {
+                html += `
+                    <tr>
+                        <td>${days[item.day_of_week - 1] || item.day_of_week}</td>
+                        <td>${item.start_time} - ${item.end_time}</td>
+                        <td>${item.subject_name || 'Не указан'}</td>
+                        <td>${item.teacher_name || 'Не указан'}</td>
+                        <td>${item.classroom || 'Не указана'}</td>
+                    </tr>
+                `;
+            });
+            
+            html += `</tbody></table></div>`;
+            document.getElementById('scheduleList').innerHTML = html;
+        } else {
+            document.getElementById('scheduleList').innerHTML = `
+                <div class="alert alert-warning">
+                    <h5>Расписание не найдено</h5>
+                    <p>Расписание для вас пока не составлено.</p>
+                </div>
+            `;
+        }
+    } catch (error) {
+        console.error('Error loading schedule:', error);
+        document.getElementById('scheduleList').innerHTML = `
+            <div class="alert alert-danger">
+                <h5>Ошибка загрузки</h5>
+                <p>Не удалось загрузить расписание.</p>
+            </div>
+        `;
+    }
+}
 
         async function loadAttendance() {
     try {
         if (currentUser.role === 'student' && currentUser.student_id) {
-            // Существующий код для студентов...
+            // Код для студентов (оставляем как было)
             const response = await fetch(`/api/attendance/student/${currentUser.student_id}`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
@@ -537,7 +715,7 @@
                 `;
             }
         } else if (currentUser.role === 'teacher' && currentUser.teacher_id) {
-            // НОВЫЙ КОД ДЛЯ ПРЕПОДАВАТЕЛЕЙ
+            // НОВЫЙ КОД ДЛЯ ПРЕПОДАВАТЕЛЕЙ - ИНТЕРФЕЙС ОТМЕТКИ ПОСЕЩАЕМОСТИ
             await loadTeacherAttendance();
         } else {
             document.getElementById('attendanceList').innerHTML = `
@@ -558,7 +736,7 @@
     }
 }
 
-// НОВАЯ ФУНКЦИЯ для загрузки интерфейса посещаемости преподавателя
+// Функция загрузки интерфейса посещаемости для преподавателей
 async function loadTeacherAttendance() {
     try {
         // Загружаем группы и предметы преподавателя
@@ -580,6 +758,9 @@ async function loadTeacherAttendance() {
 
         let html = `
             <h5 class="mb-4">📊 Отметка посещаемости</h5>
+            <div class="alert alert-info mb-4">
+                <i class="bi bi-info-circle"></i> Выберите группу, предмет и дату для отметки посещаемости
+            </div>
             <div class="row mb-4">
                 <div class="col-md-4">
                     <label class="form-label">Группа:</label>
@@ -601,7 +782,7 @@ async function loadTeacherAttendance() {
         `;
 
         subjectsResult.data.forEach(subject => {
-            html += `<option value="${subject.id}">${subject.name} (${subject.group_name})</option>`;
+            html += `<option value="${subject.id}">${subject.name}</option>`;
         });
 
         html += `
@@ -614,8 +795,8 @@ async function loadTeacherAttendance() {
             </div>
             
             <div id="attendanceStudentsContainer">
-                <div class="alert alert-info text-center">
-                    <i class="bi bi-info-circle"></i> Выберите группу, предмет и дату для отметки посещаемости
+                <div class="alert alert-secondary text-center">
+                    <i class="bi bi-arrow-down"></i> Заполните поля выше для загрузки списка студентов
                 </div>
             </div>
         `;
@@ -627,6 +808,7 @@ async function loadTeacherAttendance() {
             <div class="alert alert-danger">
                 <h5>Ошибка загрузки</h5>
                 <p>Не удалось загрузить интерфейс отметки посещаемости.</p>
+                <p class="mb-0 small">${error.message}</p>
             </div>
         `;
     }
@@ -655,7 +837,7 @@ async function loadAttendanceStudents() {
             let html = `
                 <div class="card">
                     <div class="card-header">
-                        <h6 class="mb-0">Список студентов</h6>
+                        <h6 class="mb-0">Список студентов группы</h6>
                     </div>
                     <div class="card-body">
                         <form id="attendanceForm">
@@ -736,22 +918,37 @@ async function saveAttendance() {
         // Собираем данные о посещаемости
         const attendanceRecords = [];
         const form = document.getElementById('attendanceForm');
-        const inputs = form.querySelectorAll('input[type="radio"]:checked, input[type="text"]');
+        const radioInputs = form.querySelectorAll('input[type="radio"]:checked');
+        const textInputs = form.querySelectorAll('input[type="text"]');
 
-        // Группируем данные по студентам
+        // Создаем объект для хранения данных студентов
         const studentData = {};
-        inputs.forEach(input => {
-            const match = input.name.match(/(status|notes)_(\d+)/);
+        
+        // Обрабатываем радио-кнопки (статус)
+        radioInputs.forEach(input => {
+            const match = input.name.match(/status_(\d+)/);
             if (match) {
-                const [, type, studentId] = match;
+                const studentId = match[1];
                 if (!studentData[studentId]) {
                     studentData[studentId] = {};
                 }
-                studentData[studentId][type] = input.value;
+                studentData[studentId].status = input.value;
             }
         });
 
-        // Формируем массив записей
+        // Обрабатываем текстовые поля (примечания)
+        textInputs.forEach(input => {
+            const match = input.name.match(/notes_(\d+)/);
+            if (match) {
+                const studentId = match[1];
+                if (!studentData[studentId]) {
+                    studentData[studentId] = {};
+                }
+                studentData[studentId].notes = input.value;
+            }
+        });
+
+        // Формируем массив записей для отправки
         Object.keys(studentData).forEach(studentId => {
             if (studentData[studentId].status) {
                 attendanceRecords.push({
@@ -761,6 +958,11 @@ async function saveAttendance() {
                 });
             }
         });
+
+        if (attendanceRecords.length === 0) {
+            alert('Нет данных для сохранения');
+            return;
+        }
 
         // Отправляем на сервер
         const response = await fetch('/api/teacher/attendance', {
@@ -792,15 +994,449 @@ async function saveAttendance() {
     }
 }
 
-        async function loadDashboard() {
-            // Можно добавить статистику или другую информацию на главную
-            console.log('Dashboard loaded');
+        // Загрузка статистики преподавателя
+async function loadTeacherStatistics() {
+    try {
+        const response = await fetch(`/api/teacher/${currentUser.teacher_id}/statistics`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+
+        const result = await response.json();
+        
+        if (result.success) {
+            const stats = result.data;
+            
+            // Обновляем основные показатели
+            document.getElementById('teacherStudentsCount').textContent = stats.students_count;
+            document.getElementById('teacherGradesCount').textContent = stats.grades_count;
+            document.getElementById('teacherAverageGrade').textContent = stats.average_grade;
+            document.getElementById('teacherSubjectsCount').textContent = stats.subjects_stats.length;
+            
+            // Отображаем распределение оценок
+            displayTeacherGradesDistribution(stats.grades_distribution);
+            
+            // Отображаем статистику по предметам
+            displayTeacherSubjectsStats(stats.subjects_stats);
+            
+            // Загружаем последние оценки
+            await loadTeacherRecentGrades();
+        } else {
+            throw new Error(result.error);
         }
+    } catch (error) {
+        console.error('Error loading teacher statistics:', error);
+        document.getElementById('teacherStatisticsContent').innerHTML = `
+            <div class="alert alert-danger">
+                <h5>Ошибка загрузки</h5>
+                <p>Не удалось загрузить статистику.</p>
+                <p class="small">${error.message}</p>
+            </div>
+        `;
+    }
+}
+
+// Отображение распределения оценок преподавателя
+function displayTeacherGradesDistribution(distribution) {
+    let html = '';
+    
+    if (distribution && distribution.length === 0) {
+        html = '<p class="text-muted">Нет данных об оценках</p>';
+    } else if (distribution) {
+        const total = distribution.reduce((sum, d) => sum + d.count, 0);
+        
+        distribution.forEach(item => {
+            const percentage = total > 0 ? Math.round((item.count / total) * 100) : 0;
+            
+            html += `
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span>Оценка ${item.grade}</span>
+                    <div class="d-flex align-items-center gap-2">
+                        <div class="progress" style="width: 100px;">
+                            <div class="progress-bar bg-${item.grade >= 4 ? 'success' : item.grade >= 3 ? 'warning' : 'danger'}" 
+                                 style="width: ${percentage}%"></div>
+                        </div>
+                        <small class="text-muted">${item.count} (${percentage}%)</small>
+                    </div>
+                </div>
+            `;
+        });
+    } else {
+        html = '<p class="text-muted">Нет данных о распределении оценок</p>';
+    }
+    
+    document.getElementById('teacherGradesDistribution').innerHTML = html;
+}
+
+// Отображение статистики по предметам
+function displayTeacherSubjectsStats(subjectsStats) {
+    let html = '';
+    
+    if (subjectsStats && subjectsStats.length === 0) {
+        html = '<p class="text-muted">Нет данных по предметам</p>';
+    } else if (subjectsStats) {
+        subjectsStats.forEach(subject => {
+            const avgGrade = subject.average_grade ? Math.round(subject.average_grade * 100) / 100 : 0;
+            const gradeCount = subject.grade_count || 0;
+            
+            html += `
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="text-truncate" style="max-width: 150px;" title="${subject.name}">
+                        ${subject.name}
+                    </span>
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="badge bg-primary">${avgGrade}</span>
+                        <small class="text-muted">(${gradeCount})</small>
+                    </div>
+                </div>
+            `;
+        });
+    } else {
+        html = '<p class="text-muted">Нет данных по предметам</p>';
+    }
+    
+    document.getElementById('teacherSubjectsStats').innerHTML = html;
+}
+
+// Загрузка последних оценок преподавателя
+async function loadTeacherRecentGrades() {
+    try {
+        const response = await fetch(`/api/teacher/${currentUser.teacher_id}/recent-grades`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+
+        const result = await response.json();
+        
+        if (result.success && result.data && result.data.length > 0) {
+            let html = `
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped">
+                        <thead>
+                            <tr>
+                                <th>Студент</th>
+                                <th>Предмет</th>
+                                <th>Оценка</th>
+                                <th>Дата</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+            
+            result.data.forEach(grade => {
+                html += `
+                    <tr>
+                        <td>${grade.student_name || 'Не указан'}</td>
+                        <td>${grade.subject_name || 'Не указан'}</td>
+                        <td>
+                            <span class="badge bg-${grade.grade >= 4 ? 'success' : grade.grade >= 3 ? 'warning' : 'danger'}">
+                                ${grade.grade}
+                            </span>
+                        </td>
+                        <td>${new Date(grade.date).toLocaleDateString()}</td>
+                    </tr>
+                `;
+            });
+            
+            html += '</tbody></table></div>';
+            document.getElementById('teacherRecentGrades').innerHTML = html;
+        } else {
+            document.getElementById('teacherRecentGrades').innerHTML = 
+                '<p class="text-muted">Нет последних оценок</p>';
+        }
+    } catch (error) {
+        console.error('Error loading recent grades:', error);
+        document.getElementById('teacherRecentGrades').innerHTML = 
+            '<p class="text-muted">Ошибка загрузки последних оценок</p>';
+    }
+}
+
+// Обновление статистики преподавателя
+function refreshTeacherStatistics() {
+    loadTeacherStatistics();
+}
+
+        async function loadDashboard() {
+    try {
+        // Сохраняем базовую информацию о пользователе
+        const userInfoDiv = document.getElementById('userDetails');
+        let baseHtml = `
+            <p class="mb-2"><strong>👤 Логин:</strong> ${currentUser.username}</p>
+            <p class="mb-2"><strong>🎯 Роль:</strong> <span class="${getRoleClass(currentUser.role)} role-badge">${getRoleText(currentUser.role)}</span></p>
+            ${currentUser.student_id ? `<p class="mb-2"><strong>🎓 ID студента:</strong> ${currentUser.student_id}</p>` : ''}
+            ${currentUser.teacher_id ? `<p class="mb-0"><strong>👨‍🏫 ID преподавателя:</strong> ${currentUser.teacher_id}</p>` : ''}
+        `;
+
+        // Для студентов показываем последние оценки
+        if (currentUser.role === 'student' && currentUser.student_id) {
+            const response = await fetch(`/api/grades/student/${currentUser.student_id}`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            const result = await response.json();
+            
+            if (result.success && result.data.length > 0) {
+                baseHtml += `
+                    <div class="mt-3 pt-3 border-top">
+                        <h6 class="mb-2">📝 Последние оценки:</h6>
+                        <div class="list-group list-group-flush">
+                `;
+                
+                result.data.slice(0, 5).forEach(grade => {
+                    baseHtml += `
+                        <div class="list-group-item d-flex justify-content-between align-items-center px-0">
+                            <small>${grade.subject_name || 'Не указан'}</small>
+                            <span class="badge bg-${grade.grade >= 4 ? 'success' : grade.grade >= 3 ? 'warning' : 'danger'}">
+                                ${grade.grade}
+                            </span>
+                        </div>
+                    `;
+                });
+                
+                baseHtml += `</div></div>`;
+            }
+        }
+        
+        // Для преподавателей показываем быструю статистику
+        if (currentUser.role === 'teacher' && currentUser.teacher_id) {
+            const response = await fetch(`/api/teacher/${currentUser.teacher_id}/statistics`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            const result = await response.json();
+            
+            if (result.success) {
+                const stats = result.data;
+                baseHtml += `
+                    <div class="mt-3 pt-3 border-top">
+                        <h6 class="mb-2">📊 Быстрая статистика:</h6>
+                        <div class="row small">
+                            <div class="col-6">
+                                <strong>Студентов:</strong><br>
+                                <span class="text-primary">${stats.students_count}</span>
+                            </div>
+                            <div class="col-6">
+                                <strong>Оценок:</strong><br>
+                                <span class="text-primary">${stats.grades_count}</span>
+                            </div>
+                            <div class="col-6 mt-2">
+                                <strong>Средний балл:</strong><br>
+                                <span class="text-primary">${stats.average_grade}</span>
+                            </div>
+                            <div class="col-6 mt-2">
+                                <strong>Предметов:</strong><br>
+                                <span class="text-primary">${stats.subjects_stats?.length || 0}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+        
+        // Для администраторов показываем системную информацию
+        if (currentUser.role === 'admin') {
+            const response = await fetch('/api/statistics/overview', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            const result = await response.json();
+            
+            if (result.success) {
+                const stats = result.data;
+                baseHtml += `
+                    <div class="mt-3 pt-3 border-top">
+                        <h6 class="mb-2">🏢 Статистика системы:</h6>
+                        <div class="row small">
+                            <div class="col-6">
+                                <strong>Пользователей:</strong><br>
+                                <span class="text-primary">${stats.users || 0}</span>
+                            </div>
+                            <div class="col-6">
+                                <strong>Студентов:</strong><br>
+                                <span class="text-primary">${stats.students || 0}</span>
+                            </div>
+                            <div class="col-6 mt-2">
+                                <strong>Преподавателей:</strong><br>
+                                <span class="text-primary">${stats.teachers || 0}</span>
+                            </div>
+                            <div class="col-6 mt-2">
+                                <strong>Оценок:</strong><br>
+                                <span class="text-primary">${stats.grades || 0}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        // ОДНОРАЗОВО УСТАНАВЛИВАЕМ HTML
+        userInfoDiv.innerHTML = baseHtml;
+        
+    } catch (error) {
+        console.error('Error loading dashboard:', error);
+        // В случае ошибки просто показываем базовую информацию
+        const userInfoDiv = document.getElementById('userDetails');
+        userInfoDiv.innerHTML = `
+            <p class="mb-2"><strong>👤 Логин:</strong> ${currentUser.username}</p>
+            <p class="mb-2"><strong>🎯 Роль:</strong> <span class="${getRoleClass(currentUser.role)} role-badge">${getRoleText(currentUser.role)}</span></p>
+            ${currentUser.student_id ? `<p class="mb-2"><strong>🎓 ID студента:</strong> ${currentUser.student_id}</p>` : ''}
+            ${currentUser.teacher_id ? `<p class="mb-0"><strong>👨‍🏫 ID преподавателя:</strong> ${currentUser.teacher_id}</p>` : ''}
+            <div class="mt-3 pt-3 border-top">
+                <p class="text-muted small">Не удалось загрузить дополнительную информацию</p>
+            </div>
+        `;
+    }
+}
+
+// Вспомогательные функции для ролей
+function getRoleText(role) {
+    switch(role) {
+        case 'admin': return 'Администратор';
+        case 'teacher': return 'Преподаватель';
+        case 'student': return 'Студент';
+        default: return role;
+    }
+}
+
+function getRoleClass(role) {
+    switch(role) {
+        case 'admin': return 'role-admin';
+        case 'teacher': return 'role-teacher';
+        case 'student': return 'role-student';
+        default: return '';
+    }
+}
 
         function logout() {
             localStorage.removeItem('token');
+            localStorage.removeItem('user');
             window.location.href = 'login.html';
         }
+
+        // Показываем соответствующие секции отчетов
+function showReportSections() {
+    document.getElementById('studentReportSection').style.display = currentUser.role === 'student' ? 'block' : 'none';
+    document.getElementById('teacherReportSection').style.display = currentUser.role === 'teacher' ? 'block' : 'none';
+    document.getElementById('adminReportSection').style.display = currentUser.role === 'admin' ? 'block' : 'none';
+
+    if (currentUser.role === 'teacher') {
+        loadTeacherGroupsForReports();
+    }
+}
+
+// Загрузка групп для преподавателей
+async function loadTeacherGroupsForReports() {
+    try {
+        const response = await fetch(`/api/teacher/${currentUser.teacher_id}/groups`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        const result = await response.json();
+        const select = document.getElementById('reportGroupSelect');
+        
+        if (result.success) {
+            select.innerHTML = '<option value="">Выберите группу</option>';
+            result.data.forEach(group => {
+                const option = document.createElement('option');
+                option.value = group.id;
+                option.textContent = group.name;
+                select.appendChild(option);
+            });
+        }
+    } catch (error) {
+        console.error('Error loading groups for reports:', error);
+    }
+}
+
+// Генерация отчета по студенту
+async function generateStudentReport() {
+    try {
+        const reportUrl = `/api/reports/student/${currentUser.student_id}`;
+        window.open(reportUrl, '_blank');
+        
+        document.getElementById('reportResult').innerHTML = `
+            <div class="alert alert-success">
+                <i class="bi bi-check-circle"></i> Отчет успешно сгенерирован! Открывается в новом окне...
+            </div>
+        `;
+    } catch (error) {
+        console.error('Error generating student report:', error);
+        document.getElementById('reportResult').innerHTML = `
+            <div class="alert alert-danger">
+                <i class="bi bi-exclamation-triangle"></i> Ошибка генерации отчета
+            </div>
+        `;
+    }
+}
+
+// Генерация отчета по группе
+async function generateGroupReport() {
+    const groupId = document.getElementById('reportGroupSelect').value;
+    
+    if (!groupId) {
+        alert('Пожалуйста, выберите группу');
+        return;
+    }
+
+    try {
+        const reportUrl = `/api/reports/group/${groupId}`;
+        window.open(reportUrl, '_blank');
+        
+        document.getElementById('reportResult').innerHTML = `
+            <div class="alert alert-success">
+                <i class="bi bi-check-circle"></i> Отчет по группе успешно сгенерирован! Открывается в новом окне...
+            </div>
+        `;
+    } catch (error) {
+        console.error('Error generating group report:', error);
+        document.getElementById('reportResult').innerHTML = `
+            <div class="alert alert-danger">
+                <i class="bi bi-exclamation-triangle"></i> Ошибка генерации отчета по группе
+            </div>
+        `;
+    }
+}
+
+// Заглушки для административных отчетов
+function generateSystemReport() {
+    alert('Функция генерации системного отчета в разработке');
+}
+
+function generateAllGroupsReport() {
+    alert('Функция генерации отчета по всем группам в разработке');
+}
+
+// Обновляем функцию showSection для отчетов
+async function loadSectionData(sectionName) {
+    switch(sectionName) {
+        case 'grades':
+            await loadGrades();
+            break;
+        case 'schedule':
+            await loadSchedule();
+            break;
+        case 'attendance':
+            await loadAttendance();
+            break;
+        case 'dashboard':
+            await loadDashboard();
+            break;
+        case 'teacherStats':
+            await loadTeacherStatistics();
+            break;
+        case 'reports': // ДОБАВЛЯЕМ НОВУЮ СЕКЦИЮ
+            showReportSections();
+            break;
+    }
+}
 
         // Запускаем проверку авторизации
         checkAuth();

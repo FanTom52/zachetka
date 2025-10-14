@@ -1111,6 +1111,490 @@ app.post('/api/teacher/attendance', authenticateToken, async (req, res) => {
     }
 });
 
+// 📍 Статистика пользователей
+app.get('/api/statistics/users', authenticateToken, async (req, res) => {
+    try {
+        const usersCount = await database.query('SELECT COUNT(*) as count FROM users');
+        const studentsCount = await database.query('SELECT COUNT(*) as count FROM students');
+        const teachersCount = await database.query('SELECT COUNT(*) as count FROM teachers');
+        
+        res.json({
+            success: true,
+            data: {
+                users: usersCount[0].count,
+                students: studentsCount[0].count,
+                teachers: teachersCount[0].count
+            }
+        });
+    } catch (error) {
+        console.error('Users statistics error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Ошибка загрузки статистики пользователей'
+        });
+    }
+});
+
+// 📍 Статистика преподавателя
+app.get('/api/teacher/:teacherId/statistics', authenticateToken, async (req, res) => {
+    try {
+        const { teacherId } = req.params;
+        
+        // Количество студентов у преподавателя
+        const studentsCount = await database.query(`
+            SELECT COUNT(DISTINCT s.id) as count
+            FROM students s
+            LEFT JOIN grades g ON s.id = g.student_id
+            LEFT JOIN subjects sub ON g.subject_id = sub.id
+            WHERE sub.teacher_id = ? OR g.teacher_id = ?
+        `, [teacherId, teacherId]);
+
+        // Количество поставленных оценок
+        const gradesCount = await database.query(`
+            SELECT COUNT(*) as count
+            FROM grades
+            WHERE teacher_id = ?
+        `, [teacherId]);
+
+        // Средний балл по оценкам преподавателя
+        const averageGrade = await database.query(`
+            SELECT AVG(grade) as average
+            FROM grades
+            WHERE teacher_id = ?
+        `, [teacherId]);
+
+        // Статистика по предметам
+        const subjectsStats = await database.query(`
+            SELECT s.name, COUNT(g.id) as grade_count, AVG(g.grade) as average_grade
+            FROM subjects s
+            LEFT JOIN grades g ON s.id = g.subject_id
+            WHERE s.teacher_id = ? AND g.teacher_id = ?
+            GROUP BY s.id, s.name
+        `, [teacherId, teacherId]);
+
+        // Распределение оценок
+        const gradesDistribution = await database.query(`
+            SELECT grade, COUNT(*) as count
+            FROM grades
+            WHERE teacher_id = ?
+            GROUP BY grade
+            ORDER BY grade DESC
+        `, [teacherId]);
+
+        res.json({
+            success: true,
+            data: {
+                students_count: studentsCount[0]?.count || 0,
+                grades_count: gradesCount[0]?.count || 0,
+                average_grade: Math.round(averageGrade[0]?.average * 100) / 100 || 0,
+                subjects_stats: subjectsStats,
+                grades_distribution: gradesDistribution
+            }
+        });
+
+    } catch (error) {
+        console.error('Teacher statistics error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Ошибка загрузки статистики преподавателя'
+        });
+    }
+});
+
+// 📍 Последние оценки преподавателя
+app.get('/api/teacher/:teacherId/recent-grades', authenticateToken, async (req, res) => {
+    try {
+        const { teacherId } = req.params;
+        
+        const recentGrades = await database.query(`
+            SELECT g.*, 
+                   s.name as student_name,
+                   s.student_card,
+                   gr.name as group_name,
+                   sub.name as subject_name
+            FROM grades g
+            LEFT JOIN students s ON g.student_id = s.id
+            LEFT JOIN groups gr ON s.group_id = gr.id
+            LEFT JOIN subjects sub ON g.subject_id = sub.id
+            WHERE g.teacher_id = ?
+            ORDER BY g.date DESC, g.created_at DESC
+            LIMIT 10
+        `, [teacherId]);
+
+        res.json({
+            success: true,
+            data: recentGrades
+        });
+    } catch (error) {
+        console.error('Get teacher recent grades error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Ошибка загрузки последних оценок'
+        });
+    }
+});
+
+// 📍 Генерация отчета по студенту
+app.get('/api/reports/student/:studentId', authenticateToken, async (req, res) => {
+    try {
+        const { studentId } = req.params;
+        const { format = 'html' } = req.query;
+
+        // Получаем данные студента
+        const studentData = await database.query(`
+            SELECT s.*, g.name as group_name 
+            FROM students s 
+            LEFT JOIN groups g ON s.group_id = g.id 
+            WHERE s.id = ?
+        `, [studentId]);
+
+        if (studentData.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Студент не найден'
+            });
+        }
+
+        // Получаем оценки студента
+        const grades = await database.query(`
+            SELECT g.*, s.name as subject_name, t.name as teacher_name
+            FROM grades g
+            LEFT JOIN subjects s ON g.subject_id = s.id
+            LEFT JOIN teachers t ON g.teacher_id = t.id
+            WHERE g.student_id = ?
+            ORDER BY g.date DESC
+        `, [studentId]);
+
+        // Получаем посещаемость
+        const attendance = await database.query(`
+            SELECT a.*, sub.name as subject_name
+            FROM attendance a
+            LEFT JOIN subjects sub ON a.subject_id = sub.id
+            WHERE a.student_id = ?
+            ORDER BY a.date DESC
+            LIMIT 50
+        `, [studentId]);
+
+        // Рассчитываем статистику
+        const totalGrades = grades.length;
+        const averageGrade = totalGrades > 0 
+            ? (grades.reduce((sum, grade) => sum + grade.grade, 0) / totalGrades).toFixed(2)
+            : 0;
+
+        const attendanceStats = attendance.reduce((stats, record) => {
+            if (record.status === 'present') stats.present++;
+            else stats.absent++;
+            return stats;
+        }, { present: 0, absent: 0 });
+
+        const reportData = {
+            student: studentData[0],
+            grades: grades,
+            attendance: attendance,
+            statistics: {
+                totalGrades: totalGrades,
+                averageGrade: averageGrade,
+                attendance: attendanceStats,
+                attendancePercentage: attendance.length > 0 
+                    ? ((attendanceStats.present / attendance.length) * 100).toFixed(1)
+                    : 0
+            },
+            generatedAt: new Date().toLocaleString('ru-RU')
+        };
+
+        if (format === 'json') {
+            res.json({
+                success: true,
+                data: reportData
+            });
+        } else {
+            // Генерируем HTML отчет
+            const htmlReport = generateStudentHTMLReport(reportData);
+            res.send(htmlReport);
+        }
+
+    } catch (error) {
+        console.error('Student report error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Ошибка генерации отчета'
+        });
+    }
+});
+
+// 📍 Генерация отчета по группе
+app.get('/api/reports/group/:groupId', authenticateToken, async (req, res) => {
+    try {
+        const { groupId } = req.params;
+        const { format = 'html' } = req.query;
+
+        // Получаем данные группы
+        const groupData = await database.query('SELECT * FROM groups WHERE id = ?', [groupId]);
+        
+        if (groupData.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Группа не найдена'
+            });
+        }
+
+        // Получаем студентов группы
+        const students = await database.query(`
+            SELECT s.*, 
+                   COUNT(g.id) as grades_count,
+                   AVG(g.grade) as average_grade
+            FROM students s
+            LEFT JOIN grades g ON s.id = g.student_id
+            WHERE s.group_id = ?
+            GROUP BY s.id, s.name, s.student_card
+            ORDER BY s.name
+        `, [groupId]);
+
+        // Получаем общую статистику по группе
+        const groupStats = await database.query(`
+            SELECT 
+                COUNT(DISTINCT s.id) as total_students,
+                COUNT(g.id) as total_grades,
+                AVG(g.grade) as group_average,
+                COUNT(CASE WHEN g.grade >= 4 THEN 1 END) as good_grades,
+                COUNT(CASE WHEN g.grade < 3 THEN 1 END) as bad_grades
+            FROM students s
+            LEFT JOIN grades g ON s.id = g.student_id
+            WHERE s.group_id = ?
+        `, [groupId]);
+
+        const reportData = {
+            group: groupData[0],
+            students: students,
+            statistics: groupStats[0],
+            generatedAt: new Date().toLocaleString('ru-RU')
+        };
+
+        if (format === 'json') {
+            res.json({
+                success: true,
+                data: reportData
+            });
+        } else {
+            const htmlReport = generateGroupHTMLReport(reportData);
+            res.send(htmlReport);
+        }
+
+    } catch (error) {
+        console.error('Group report error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Ошибка генерации отчета по группе'
+        });
+    }
+});
+
+// Функция генерации HTML отчета для студента
+function generateStudentHTMLReport(data) {
+    return `
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Отчет по студенту - ${data.student.name}</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; color: #333; }
+        .header { border-bottom: 2px solid #007bff; padding-bottom: 10px; margin-bottom: 20px; }
+        .section { margin-bottom: 30px; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin: 20px 0; }
+        .stat-card { background: #f8f9fa; padding: 15px; border-radius: 8px; text-align: center; }
+        table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #007bff; color: white; }
+        .badge { padding: 4px 8px; border-radius: 4px; color: white; font-size: 12px; }
+        .badge-success { background: #28a745; }
+        .badge-warning { background: #ffc107; }
+        .badge-danger { background: #dc3545; }
+        .footer { margin-top: 30px; padding-top: 10px; border-top: 1px solid #ddd; color: #666; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📊 Академический отчет</h1>
+        <h2>Студент: ${data.student.name}</h2>
+        <p>Группа: ${data.student.group_name || 'Не указана'} | Зачетка: ${data.student.student_card || 'Не указан'}</p>
+    </div>
+
+    <div class="section">
+        <h3>📈 Статистика</h3>
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h4>Всего оценок</h4>
+                <p style="font-size: 24px; margin: 0; color: #007bff;">${data.statistics.totalGrades}</p>
+            </div>
+            <div class="stat-card">
+                <h4>Средний балл</h4>
+                <p style="font-size: 24px; margin: 0; color: #28a745;">${data.statistics.averageGrade}</p>
+            </div>
+            <div class="stat-card">
+                <h4>Посещаемость</h4>
+                <p style="font-size: 24px; margin: 0; color: #17a2b8;">${data.statistics.attendancePercentage}%</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h3>📝 Оценки</h3>
+        ${data.grades.length > 0 ? `
+            <table>
+                <thead>
+                    <tr>
+                        <th>Предмет</th>
+                        <th>Оценка</th>
+                        <th>Тип</th>
+                        <th>Дата</th>
+                        <th>Преподаватель</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${data.grades.map(grade => `
+                        <tr>
+                            <td>${grade.subject_name || 'Не указан'}</td>
+                            <td>
+                                <span class="badge ${grade.grade >= 4 ? 'badge-success' : grade.grade >= 3 ? 'badge-warning' : 'badge-danger'}">
+                                    ${grade.grade}
+                                </span>
+                            </td>
+                            <td>${grade.grade_type || 'Не указан'}</td>
+                            <td>${new Date(grade.date).toLocaleDateString('ru-RU')}</td>
+                            <td>${grade.teacher_name || 'Не указан'}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        ` : '<p>Оценок нет</p>'}
+    </div>
+
+    <div class="section">
+        <h3>✅ Посещаемость (последние 50 записей)</h3>
+        ${data.attendance.length > 0 ? `
+            <table>
+                <thead>
+                    <tr>
+                        <th>Дата</th>
+                        <th>Предмет</th>
+                        <th>Статус</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${data.attendance.map(record => `
+                        <tr>
+                            <td>${new Date(record.date).toLocaleDateString('ru-RU')}</td>
+                            <td>${record.subject_name || 'Не указан'}</td>
+                            <td>
+                                <span class="badge ${record.status === 'present' ? 'badge-success' : 'badge-danger'}">
+                                    ${record.status === 'present' ? 'Присутствовал' : 'Отсутствовал'}
+                                </span>
+                            </td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        ` : '<p>Записей о посещаемости нет</p>'}
+    </div>
+
+    <div class="footer">
+        <p>Отчет сгенерирован: ${data.generatedAt}</p>
+        <p>Система электронной зачетки</p>
+    </div>
+</body>
+</html>
+    `;
+}
+
+// Функция генерации HTML отчета для группы
+function generateGroupHTMLReport(data) {
+    return `
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Отчет по группе - ${data.group.name}</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; color: #333; }
+        .header { border-bottom: 2px solid #007bff; padding-bottom: 10px; margin-bottom: 20px; }
+        .section { margin-bottom: 30px; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin: 20px 0; }
+        .stat-card { background: #f8f9fa; padding: 15px; border-radius: 8px; text-align: center; }
+        table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #007bff; color: white; }
+        .footer { margin-top: 30px; padding-top: 10px; border-top: 1px solid #ddd; color: #666; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📊 Отчет по группе</h1>
+        <h2>Группа: ${data.group.name}</h2>
+        <p>Специализация: ${data.group.specialization || 'Не указана'}</p>
+    </div>
+
+    <div class="section">
+        <h3>📈 Общая статистика группы</h3>
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h4>Студентов</h4>
+                <p style="font-size: 24px; margin: 0; color: #007bff;">${data.statistics.total_students}</p>
+            </div>
+            <div class="stat-card">
+                <h4>Всего оценок</h4>
+                <p style="font-size: 24px; margin: 0; color: #28a745;">${data.statistics.total_grades}</p>
+            </div>
+            <div class="stat-card">
+                <h4>Средний балл</h4>
+                <p style="font-size: 24px; margin: 0; color: #17a2b8;">${Math.round(data.statistics.group_average * 100) / 100 || 0}</p>
+            </div>
+            <div class="stat-card">
+                <h4>Успеваемость</h4>
+                <p style="font-size: 24px; margin: 0; color: #ffc107;">
+                    ${data.statistics.total_grades > 0 ? Math.round((data.statistics.good_grades / data.statistics.total_grades) * 100) : 0}%
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h3>🎓 Список студентов</h3>
+        ${data.students.length > 0 ? `
+            <table>
+                <thead>
+                    <tr>
+                        <th>Студент</th>
+                        <th>Номер зачетки</th>
+                        <th>Кол-во оценок</th>
+                        <th>Средний балл</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${data.students.map(student => `
+                        <tr>
+                            <td>${student.name}</td>
+                            <td>${student.student_card || 'Не указан'}</td>
+                            <td>${student.grades_count || 0}</td>
+                            <td>${Math.round(student.average_grade * 100) / 100 || 'Нет оценок'}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        ` : '<p>В группе нет студентов</p>'}
+    </div>
+
+    <div class="footer">
+        <p>Отчет сгенерирован: ${data.generatedAt}</p>
+        <p>Система электронной зачетки</p>
+    </div>
+</body>
+</html>
+    `;
+}
+
 // 📍 Запуск сервера
 app.listen(PORT, () => {
     console.log(`🚀 Сервер запущен на порту ${PORT}`);
