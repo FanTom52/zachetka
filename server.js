@@ -15,10 +15,19 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware
-app.use(cors());
+app.use(cors({
+    origin: 'http://localhost:3000',
+    credentials: true
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public'));
+app.use('/api/attendance', (req, res, next) => {
+    console.log('🔍 ATTENDANCE DEBUG - Запрос:', req.method, req.url);
+    console.log('🔍 ATTENDANCE DEBUG - Body:', req.body);
+    console.log('🔍 ATTENDANCE DEBUG - Headers authorization:', req.headers.authorization ? 'Есть' : 'Нет');
+    next();
+});
 
 // Middleware для проверки JWT токена
 const authenticateToken = (req, res, next) => {
@@ -1420,6 +1429,14 @@ app.get('/', (req, res) => {
     res.sendFile(__dirname + '/public/index.html');
 });
 
+// Отладочный middleware для отслеживания запросов
+app.use('/api/attendance', (req, res, next) => {
+    console.log('🔍 ATTENDANCE DEBUG - Запрос:', req.method, req.url);
+    console.log('🔍 ATTENDANCE DEBUG - Body:', req.body);
+    console.log('🔍 ATTENDANCE DEBUG - Headers:', req.headers);
+    next();
+});
+
 // Подключаем маршруты
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/students', require('./routes/students'));
@@ -1428,6 +1445,9 @@ app.use('/api/groups', require('./routes/groups'));
 app.use('/api/subjects', require('./routes/subjects'));
 app.use('/api/statistics', require('./routes/statistics'));
 app.use('/api/teacher', require('./routes/teacher'));
+app.use('/api/gradebook', require('./routes/gradebook'));
+app.use('/api/session-schedule', require('./routes/session-schedule'));
+app.use('/api/attendance', require('./routes/attendance'));
 
 // 📍 Тестовый маршрут для проверки работы сервера
 app.get('/api/test', (req, res) => {

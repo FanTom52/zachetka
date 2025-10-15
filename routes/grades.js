@@ -415,4 +415,163 @@ router.delete('/:gradeId', authenticateToken, requireTeacherOrAdmin, async (req,
     }
 });
 
+// 🐛 ОТЛАДОЧНЫЙ МАРШРУТ - проверить доступность
+router.get('/debug-test', (req, res) => {
+    console.log('✅ Маршрут /api/grades/debug-test работает!');
+    res.json({ 
+        success: true, 
+        message: 'Маршрут grades работает',
+        timestamp: new Date().toISOString()
+    });
+});
+
+// 🐛 ОТЛАДОЧНЫЙ МАРШРУТ - проверить структуру данных
+router.post('/debug', authenticateToken, (req, res) => {
+    console.log('🔍 Получены данные:', req.body);
+    console.log('🔍 Заголовки:', req.headers);
+    
+    res.json({
+        success: true,
+        received: req.body,
+        message: 'Данные получены успешно'
+    });
+});
+
+// 📝 Получить данные конкретной оценки
+router.get('/:gradeId', authenticateToken, async (req, res) => {
+    try {
+        const { gradeId } = req.params;
+        
+        const sql = `
+            SELECT 
+                g.*,
+                s.name as student_name,
+                sub.name as subject_name,
+                t.name as teacher_name,
+                gr.name as group_name
+            FROM grades g
+            JOIN students s ON g.student_id = s.id
+            JOIN subjects sub ON g.subject_id = sub.id
+            LEFT JOIN teachers t ON g.teacher_id = t.id
+            LEFT JOIN groups gr ON s.group_id = gr.id
+            WHERE g.id = ?
+        `;
+        
+        db.get(sql, [gradeId], (err, grade) => {
+            if (err) {
+                console.error('Ошибка получения оценки:', err);
+                return res.status(500).json({
+                    success: false,
+                    error: 'Ошибка получения данных оценки'
+                });
+            }
+            
+            if (!grade) {
+                return res.status(404).json({
+                    success: false,
+                    error: 'Оценка не найдена'
+                });
+            }
+            
+            res.json({
+                success: true,
+                data: grade
+            });
+        });
+        
+    } catch (error) {
+        console.error('Ошибка получения оценки:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Внутренняя ошибка сервера'
+        });
+    }
+});
+
+// ✏️ Обновить оценку
+router.put('/:gradeId', authenticateToken, requireTeacherOrAdmin, async (req, res) => {
+    try {
+        const { gradeId } = req.params;
+        const { grade, is_pass, date, notes } = req.body;
+        const teacherId = req.user.teacher_id || req.user.id;
+
+        // Проверяем, существует ли оценка и принадлежит ли она преподавателю
+        const checkSql = `SELECT * FROM grades WHERE id = ? AND teacher_id = ?`;
+        
+        db.get(checkSql, [gradeId, teacherId], (err, existingGrade) => {
+            if (err) {
+                return res.status(500).json({
+                    success: false,
+                    error: 'Ошибка проверки оценки'
+                });
+            }
+
+            if (!existingGrade) {
+                return res.status(404).json({
+                    success: false,
+                    error: 'Оценка не найдена или у вас нет прав для её редактирования'
+                });
+            }
+
+            // Подготавливаем данные для обновления
+            let updateFields = [];
+            let updateValues = [];
+
+            if (grade !== undefined) {
+                updateFields.push('grade = ?');
+                updateValues.push(grade);
+            }
+
+            if (is_pass !== undefined) {
+                updateFields.push('is_pass = ?');
+                updateValues.push(is_pass);
+            }
+
+            if (date) {
+                updateFields.push('date = ?');
+                updateValues.push(date);
+            }
+
+            if (notes !== undefined) {
+                updateFields.push('notes = ?');
+                updateValues.push(notes);
+            }
+
+            if (updateFields.length === 0) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Нет данных для обновления'
+                });
+            }
+
+            updateValues.push(gradeId);
+
+            const updateSql = `UPDATE grades SET ${updateFields.join(', ')} WHERE id = ?`;
+            
+            db.run(updateSql, updateValues, function(err) {
+                if (err) {
+                    console.error('Ошибка обновления оценки:', err);
+                    return res.status(500).json({
+                        success: false,
+                        error: 'Ошибка обновления оценки'
+                    });
+                }
+                
+                res.json({
+                    success: true,
+                    message: 'Оценка успешно обновлена',
+                    data: { id: gradeId }
+                });
+            });
+        });
+        
+    } catch (error) {
+        console.error('Ошибка обновления оценки:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Внутренняя ошибка сервера'
+        });
+    }
+});
+
 module.exports = router;
