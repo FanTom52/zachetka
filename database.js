@@ -106,21 +106,23 @@ class Database {
                 FOREIGN KEY (teacher_id) REFERENCES teachers(id)
             )`,
 
-            // Таблица оценок
-            `CREATE TABLE IF NOT EXISTS grades (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                student_id INTEGER,
-                subject_id INTEGER,
-                grade INTEGER NOT NULL CHECK(grade BETWEEN 2 AND 5),
-                grade_type TEXT CHECK(grade_type IN ('exam', 'test', 'coursework', 'practice')),
-                date TEXT NOT NULL,
-                teacher_id INTEGER,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (student_id) REFERENCES students(id),
-                FOREIGN KEY (subject_id) REFERENCES subjects(id),
-                FOREIGN KEY (teacher_id) REFERENCES teachers(id),
-                UNIQUE(student_id, subject_id, grade_type)
-            )`,
+            // Таблица оценок и зачётов - ИСПРАВЛЕННАЯ ВЕРСИЯ
+`CREATE TABLE IF NOT EXISTS grades (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    student_id INTEGER,
+    subject_id INTEGER,
+    grade INTEGER CHECK(grade BETWEEN 2 AND 5 OR grade IS NULL),
+    is_pass INTEGER CHECK(is_pass IN (0, 1)),
+    grade_type TEXT NOT NULL CHECK(grade_type IN ('exam', 'test', 'credit', 'coursework', 'practice')),
+    date TEXT NOT NULL,
+    teacher_id INTEGER,
+    notes TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (student_id) REFERENCES students(id),
+    FOREIGN KEY (subject_id) REFERENCES subjects(id),
+    FOREIGN KEY (teacher_id) REFERENCES teachers(id),
+    UNIQUE(student_id, subject_id, grade_type)
+)`,
 
             // Таблица пользователей для авторизации
             `CREATE TABLE IF NOT EXISTS users (

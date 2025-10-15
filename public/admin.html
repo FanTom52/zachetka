@@ -487,8 +487,7 @@
             }
         }
 
-        // Отображение пользователей
-        // Отображение пользователей
+       // Отображение пользователей
 function displayUsers(users) {
     const usersList = document.getElementById('usersList');
     
@@ -531,13 +530,7 @@ function displayUsers(users) {
                 break;
         }
         
-        // Добавляем кнопки PDF только для студентов
-        const pdfButtons = user.role === 'student' ? `
-            <button class="btn btn-outline-success btn-sm" onclick="exportStudentToPDF(${user.id})" title="PDF отчет">
-                <i class="bi bi-file-pdf"></i> PDF
-            </button>
-        ` : '';
-        
+        // УБИРАЕМ кнопку PDF для студентов
         html += `
             <tr>
                 <td>${user.id}</td>
@@ -552,7 +545,6 @@ function displayUsers(users) {
                         <button class="btn btn-outline-primary" onclick="editUser(${user.id})" title="Редактировать">
                             <i class="bi bi-pencil"></i>
                         </button>
-                        ${pdfButtons}
                         <button class="btn btn-outline-danger" onclick="deleteUser(${user.id})" ${user.role === 'admin' ? 'disabled' : ''} title="Удалить">
                             <i class="bi bi-trash"></i>
                         </button>

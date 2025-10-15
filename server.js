@@ -1420,6 +1420,15 @@ app.get('/', (req, res) => {
     res.sendFile(__dirname + '/public/index.html');
 });
 
+// Подключаем маршруты
+app.use('/api/auth', require('./routes/auth'));
+app.use('/api/students', require('./routes/students'));
+app.use('/api/grades', require('./routes/grades'));
+app.use('/api/groups', require('./routes/groups'));
+app.use('/api/subjects', require('./routes/subjects'));
+app.use('/api/statistics', require('./routes/statistics'));
+app.use('/api/teacher', require('./routes/teacher'));
+
 // 📍 Тестовый маршрут для проверки работы сервера
 app.get('/api/test', (req, res) => {
     res.json({
